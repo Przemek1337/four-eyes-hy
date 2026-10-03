@@ -1,4 +1,4 @@
-import type { ApprovalT, AuditEvent, FlowT, Metrics, OwaspT, PostureT, SessionRow, TimeseriesT } from "../api/types";
+import type { ApprovalT, AuditEvent, ControlRow, FlowT, Metrics, OwaspT, PolicyT, PostureT, SessionRow, SignaturesT, TimeseriesT } from "../api/types";
 
 export const session = (over: Partial<SessionRow> = {}): SessionRow => ({
   session_id: "a41f", agent: "kyc-agent", client: "Nowak Logistics", started: 1_760_000_000, steps: 5, labels: ["untrusted", "high_risk"],
@@ -91,4 +91,35 @@ export const timeseries = (over: Partial<TimeseriesT> = {}): TimeseriesT => ({
   ...over,
 });
 
-export const fx = { session, approval, decision, flow, metrics, posture, owasp, timeseries };
+export const controls = (): ControlRow[] => [
+  { id: "auth.agent_key", description: "Without a valid agent key nothing runs.", type: "det", status: "active", mode: "enforce", setting: "enforce", params: {}, owasp: ["LLM03:2026"], hits_1h: 2, p95_ms: 0.05, weight: 15 },
+  { id: "sem.prompt_injection", description: "A classifier scores prompts and documents.", type: "ai", status: "monitor", mode: "enforce", setting: "block above 0.8",
+    params: { prompts: { block_above: 0.8, log_above: 0.5 } }, owasp: ["LLM01:2026"], hits_1h: 7, p95_ms: 24, weight: 10 },
+  { id: "dlp.redact_inflight", description: "Redacts secrets and unneeded fields.", type: "det", status: "REMOVED", mode: null, params: {}, owasp: ["LLM02:2026"], hits_1h: 0, p95_ms: 0, weight: 6 },
+];
+
+export const policy = (over: Partial<PolicyT> = {}): PolicyT => ({
+  version: "v4", profile: "strict", error: null,
+  history: [
+    { version: "v4", ts: 1_760_000_300, event: "policy.reloaded", diff: ["~ profile: 'strict' -> 'relaxed'", "- controls.dlp.redact_inflight"] },
+    { version: "v3", ts: 1_760_000_200, event: "policy.rejected", diff: [], error: "unknown control 'made.up'" },
+    { version: "v3", ts: 1_760_000_100, event: "policy.loaded", diff: [] },
+  ],
+  feed: { version: "2026-10-03.1", count: 7, last_reload: 1_760_000_050, error: null, source: "./feeds/signatures.json" },
+  summary: {
+    block_or_redact: [{ label: "Prompt injection", value: "block above 0.8, log above 0.5" }, { label: "Secrets and personal data", value: "redact in flight and in logs" }],
+    models: [{ label: "Local · qwen2.5:7b", value: "all data classes" }, { label: "External", value: "public data only" }],
+    budgets: [{ label: "kyc-agent", value: "$2.00 and 600 compute s a day" }, { label: "Session", value: "20,000 tokens, 20 steps" }],
+  },
+  ...over,
+});
+
+export const signatures = (): SignaturesT => ({
+  feed: { version: "2026.10.03", count: 7, last_reload: 1_760_000_050, error: null, source: "./feeds/signatures.json" },
+  hits: [
+    { type: "pickle_opcode", matches: "os.system, subprocess.Popen in model files", reference: "Malicious pickle models on public hubs (2024)", signature_id: "SIG-PKL-001", blocked: 3 },
+    { type: "url_pattern", matches: "Image or link to a domain outside the allowlist", reference: "EchoLeak, CVE-2025-32711", signature_id: null, blocked: 2 },
+  ],
+});
+
+export const fx = { session, approval, decision, flow, metrics, posture, owasp, timeseries, controls, policy, signatures };
