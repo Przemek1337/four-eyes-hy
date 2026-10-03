@@ -1,10 +1,14 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { api } from "../api/client";
 import { fx } from "../test/fixtures";
 import { ManagementView } from "./ManagementView";
 
 vi.mock("../api/client", () => ({
-  api: { metrics: vi.fn(), posture: vi.fn(), owasp: vi.fn(), timeseries: vi.fn(), controls: vi.fn(), policy: vi.fn(), signatures: vi.fn(), budgets: vi.fn(), tests: vi.fn() },
+  api: {
+    metrics: vi.fn(), posture: vi.fn(), owasp: vi.fn(), timeseries: vi.fn(), controls: vi.fn(), policy: vi.fn(),
+    signatures: vi.fn(), budgets: vi.fn(), tests: vi.fn(),
+  },
 }));
 
 beforeEach(() => {
@@ -19,59 +23,104 @@ beforeEach(() => {
   vi.mocked(api.tests).mockResolvedValue(fx.tests());
 });
 
-describe("ManagementView", () => {
-  it("shows the posture, the figures and OWASP coverage once loaded", async () => {
+const open = async (name: string) => userEvent.click(await screen.findByRole("tab", { name: new RegExp(`^${name}`) }));
+
+describe("ManagementView overview", () => {
+  it("opens on the overview: posture, the figures and one sentence per section, but no charts", async () => {
     render(<ManagementView />);
     expect(await screen.findByRole("img", { name: "Security posture 100 out of 100" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Requests" })).toHaveTextContent("1,284");
-    expect(await screen.findByRole("heading", { name: /OWASP LLM Top 10/ })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Threats stopped" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Data protection" })).toBeInTheDocument();
-    expect(await screen.findByRole("img", { name: /Blocked: 54 in total/ })).toBeInTheDocument();
     expect(screen.getByText(/Policy v4\./)).toBeInTheDocument();
+    expect(await screen.findByRole("list", { name: "Sections at a glance" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.queryByRole("heading", { name: "Threats stopped" })).not.toBeInTheDocument(); // one section at a time
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("summarises each section in a sentence and opens it on click", async () => {
+    render(<ManagementView />);
+    const list = await screen.findByRole("list", { name: "Sections at a glance" });
+    await screen.findByText(/142 of 142 tests pass/);
+    expect(within(list).getByText(/118 blocked \(9% of requests\)/)).toBeInTheDocument();
+    expect(within(list).getByText(/No private data reached an external model/)).toBeInTheDocument();
+    expect(within(list).getByText(/3 of 3 controls active/)).toBeInTheDocument();
+    expect(within(list).getByText(/142 of 142 tests pass\. Missed attacks 0, false blocks 0/)).toBeInTheDocument();
+    await userEvent.click(within(list).getByRole("button", { name: /Speed/ }));
+    expect(screen.getByRole("tab", { name: "Speed" })).toHaveAttribute("aria-selected", "true");
+    expect(await screen.findByRole("region", { name: "Gateway overhead" })).toBeInTheDocument();
+  });
+
+  it("flags the sections that need a person, in the list and on the tabs", async () => {
+    vi.mocked(api.budgets).mockResolvedValue(fx.budgets()); // playground near its limit, treasury at it
+    vi.mocked(api.controls).mockResolvedValue({ controls: fx.controls(), last_diff: [] }); // one removed
+    render(<ManagementView />);
+    const list = await screen.findByRole("list", { name: "Sections at a glance" });
+    await screen.findByText(/at its limit/);
+    expect(within(list).getAllByText("Needs attention").length).toBeGreaterThanOrEqual(2);
+    expect(within(screen.getByRole("tab", { name: /Cost/ })).getByRole("img", { name: "needs attention" })).toBeInTheDocument();
+    expect(within(screen.getByRole("tab", { name: /Policy/ })).getByRole("img", { name: "needs attention" })).toBeInTheDocument();
+    expect(within(screen.getByRole("tab", { name: /Speed/ })).queryByRole("img")).not.toBeInTheDocument();
+  });
+});
+
+describe("ManagementView sections", () => {
+  it("shows threats, data, cost, speed and proof one at a time", async () => {
+    render(<ManagementView />);
+    await open("Threats");
+    expect(await screen.findByRole("heading", { name: "Threats stopped" })).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: /Blocked: 54 in total/ })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Data protection" })).not.toBeInTheDocument();
+    await open("Data");
+    expect(await screen.findByRole("heading", { name: "Data protection" })).toBeInTheDocument();
+    await open("Cost");
+    expect(await screen.findByRole("region", { name: "Budgets and cost" })).toBeInTheDocument();
+    await open("Proof");
+    expect(await screen.findByRole("region", { name: "Test suite" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: /OWASP LLM Top 10/ })).toBeInTheDocument();
   });
 
   it("shows policy health: controls, what the policy is set to, known attacks and history", async () => {
     render(<ManagementView />);
+    await open("Policy");
     expect(await screen.findByRole("region", { name: "Controls" })).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: "Policy at a glance" })).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: "Known attacks blocked" })).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: "Policy and feed" })).toBeInTheDocument();
   });
 
-  it("shows cost, speed and proof sections", async () => {
-    render(<ManagementView />);
-    expect(await screen.findByRole("region", { name: "Budgets and cost" })).toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "Gateway overhead" })).toBeInTheDocument();
-    expect(await screen.findByRole("region", { name: "Test suite" })).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Missed attacks" })).toBeInTheDocument();
-  });
-
-  it("keeps the other sections when budgets or tests cannot be loaded", async () => {
+  it("keeps working when one section cannot be loaded", async () => {
     vi.mocked(api.budgets).mockRejectedValue(new Error("no budgets"));
-    vi.mocked(api.tests).mockRejectedValue(new Error("no report"));
     render(<ManagementView />);
+    await screen.findByRole("img", { name: /Security posture/ });
+    await open("Cost");
+    expect(await screen.findByRole("alert")).toHaveTextContent("no budgets");
+    await open("Speed");
     expect(await screen.findByRole("region", { name: "Gateway overhead" })).toBeInTheDocument();
-    const alerts = await screen.findAllByRole("alert");
-    expect(alerts.map((a) => a.textContent).join(" ")).toMatch(/no budgets/);
-    expect(alerts.map((a) => a.textContent).join(" ")).toMatch(/no report/);
   });
 
-  it("warns from the controls table even when the posture endpoint is silent about it", async () => {
+  it("still shows the figures when the time series cannot be loaded", async () => {
+    vi.mocked(api.timeseries).mockRejectedValue(new Error("no series"));
+    render(<ManagementView />);
+    expect(await screen.findByRole("group", { name: "Requests" })).toBeInTheDocument();
+    await open("Threats");
+    expect(await screen.findByText("No data in this window yet.")).toBeInTheDocument();
+  });
+});
+
+describe("ManagementView alerts", () => {
+  it("stay visible on every tab: a control removed from the policy", async () => {
     vi.mocked(api.controls).mockResolvedValue({ controls: fx.controls(), last_diff: ["- controls.dlp.redact_inflight"] });
     render(<ManagementView />);
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("dlp.redact_inflight was removed from the policy");
-    expect(alert).not.toHaveTextContent("Posture dropped"); // posture reports no deduction in this case
+    await open("Speed");
+    expect(screen.getByRole("alert")).toHaveTextContent("dlp.redact_inflight was removed");
   });
 
-  it("warns when a control was removed from the policy", async () => {
+  it("includes the posture drop when the posture endpoint reports one", async () => {
     vi.mocked(api.posture).mockResolvedValue(fx.posture());
     render(<ManagementView />);
-    const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("dlp.redact_inflight was removed from the policy");
-    expect(alert).toHaveTextContent("Posture dropped by 10");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Posture dropped by 10");
   });
 
   it("raises an alert when private data reached an external model", async () => {
@@ -80,19 +129,12 @@ describe("ManagementView", () => {
     expect(await screen.findByText("Private data reached an external model.")).toBeInTheDocument();
   });
 
-  it("still shows the figures when the time series cannot be loaded", async () => {
-    vi.mocked(api.timeseries).mockRejectedValue(new Error("no series"));
-    render(<ManagementView />);
-    expect(await screen.findByRole("group", { name: "Blocked" })).toBeInTheDocument();
-    expect(screen.getAllByText("No data in this window yet.").length).toBeGreaterThanOrEqual(2); // blocked and requests charts
-  });
-
-  it("explains a failed load on every panel instead of crashing", async () => {
+  it("explains a failed load instead of crashing", async () => {
     vi.mocked(api.metrics).mockRejectedValue(new Error("backend down"));
-    vi.mocked(api.owasp).mockRejectedValue(new Error("backend down"));
     render(<ManagementView />);
-    const alerts = await screen.findAllByRole("alert");
-    expect(alerts.length).toBeGreaterThanOrEqual(2);
-    expect(alerts[0]).toHaveTextContent("backend down");
+    expect(await screen.findByRole("alert")).toHaveTextContent("backend down");
+    const list = screen.getByRole("list", { name: "Sections at a glance" }); // still there: the other sections do not depend on metrics
+    expect(await within(list).findByText(/3 of 3 controls active/)).toBeInTheDocument();
+    expect(within(list).getAllByText("Not available right now.").length).toBeGreaterThanOrEqual(1);
   });
 });
