@@ -14,6 +14,9 @@ const second = fx.session({ session_id: "b2", status: "clean", labels: [], data_
 beforeEach(() => {
   vi.mocked(api.sessions).mockResolvedValue({ sessions: [fx.session(), second] });
   vi.mocked(api.approvals).mockResolvedValue({ approvals: [fx.approval({ session_id: "b2" })] });
+  vi.mocked(api.session).mockImplementation(async (id: string) => ({
+    session: { ...fx.session({ session_id: id }), scope: {}, task: null }, events: [], approvals: [],
+  }));
 });
 
 describe("SecurityView", () => {
@@ -27,7 +30,7 @@ describe("SecurityView", () => {
   it("opens the session behind a pending approval and goes back", async () => {
     render(<SecurityView />);
     await userEvent.click(await screen.findByRole("button", { name: "Review" }));
-    expect(screen.getByRole("region", { name: "Session detail" })).toHaveTextContent("b2");
+    expect(await screen.findByRole("region", { name: "Session detail" })).toHaveTextContent("b2");
     await userEvent.click(screen.getByRole("button", { name: "← Sessions" }));
     expect(await screen.findByRole("button", { name: "a41f" })).toBeInTheDocument();
   });
@@ -35,7 +38,7 @@ describe("SecurityView", () => {
   it("opens a session from the table", async () => {
     render(<SecurityView />);
     await userEvent.click(await screen.findByRole("button", { name: "a41f" }));
-    expect(screen.getByRole("region", { name: "Session detail" })).toHaveTextContent("a41f");
+    expect(await screen.findByRole("region", { name: "Session detail" })).toHaveTextContent("a41f");
   });
 
   it("explains a failed load instead of crashing", async () => {

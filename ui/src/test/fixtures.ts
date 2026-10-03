@@ -1,4 +1,4 @@
-import type { ApprovalT, AuditEvent, SessionRow } from "../api/types";
+import type { ApprovalT, AuditEvent, FlowT, SessionRow } from "../api/types";
 
 export const session = (over: Partial<SessionRow> = {}): SessionRow => ({
   session_id: "a41f", agent: "kyc-agent", client: "Nowak Logistics", started: 1_760_000_000, steps: 5, labels: ["untrusted", "high_risk"],
@@ -20,4 +20,18 @@ export const decision = (over: Partial<AuditEvent> = {}): AuditEvent => ({
   data_class: "public", latency_ms: 3, gateway_ms: 2, upstream_ms: 1, route: null, alerts: [], detail: {}, ...over,
 });
 
-export const fx = { session, approval, decision };
+export const flow = (): FlowT => ({
+  sources: [
+    { name: "User request", detail: "Verify client Nowak Logistics", label: "trusted" },
+    { name: "client_upload.pdf", detail: "Hidden instruction on page 3", label: "untrusted" },
+  ],
+  agent: { name: "kyc-agent", model: "qwen2.5:7b", labels: ["untrusted", "personal_data"], labels_since_step: 2 },
+  destinations: [
+    { name: "Local model", detail: "Allowed for personal_data", outcome: "passed" },
+    { name: "External model", detail: "Public data only", outcome: "unavailable" },
+    { name: "entities_submit", detail: "No sanctions screening", outcome: "blocked" },
+    { name: "send_email", detail: "onboarding-docs@kyc-verify.example", outcome: "held" },
+  ],
+});
+
+export const fx = { session, approval, decision, flow };
