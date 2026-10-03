@@ -73,7 +73,7 @@ The "Demo: remove a control" button exists only in the key visual; the real UI c
 
 **What the numbers mean (shown in the UI, not only here).** Posture is configuration health: 100 minus the weight share of controls that are removed (full) or monitor-only (half), minus fixed penalties for a stale or failing signature feed, an unavailable AI check model and failing tests. It does not measure risk. OWASP coverage is derived from the tags of the controls that are active right now; it says "something enforces this category", and the test results are the evidence that it works.
 
-**Chat** (`#chat`): Prompt and Document modes; thread of message and gateway verdict (decision, rule, checked by, OWASP, score, data class, time); Document mode shows the session's steps and links to the session in Security; composer with example chips.
+**Chat** (`#chat`): one conversation box like a chat assistant, no separate modes. A **plus** next to the box opens a menu: upload a file, or attach an example client document. A message without a file is a prompt (one session is kept across messages, with a "New session" link); a message with a file is sent as an **untrusted client upload** and starts a KYC agent session. The thread shows your message (or the file chip and the start of its text) and under it the gateway's verdict in plain words (`Stopped before it reached the model`, `Answered by the local model`, `Held for a human`), a block in the lime-tinted box, and the facts that exist (rule, checked by rule or AI, code, OWASP with year, injection score, data class, route, time). For a file it summarises the agent's steps and offers **Open this session in Security**. The text box is locked while a file is attached, because the backend takes a single `text` field; the file is the message. Text files only for now (`.txt`, `.md`, `.csv`, `.json`, `.eml`, `.log`, up to 200 KB); anything else gets a message that says what to do. Files can also be dropped on the box. Example prompts sit under the box.
 
 **States** (`#states`, a design reference): gateway not responding, empty list, loading skeleton, late data and the three connection states, invariant breach, hostile or very long text. Every panel implements these via the shared `Async` wrapper.
 
@@ -114,7 +114,7 @@ Not a UI deliverable (tracked elsewhere): architecture diagram, sample policy fi
 1. Colour semantics (blue / orange / red, green-yellow-red meters, red counter) and the light theme are **removed**; use section 3.
 2. New: **Where the data went** map in the session detail (new task U5b). It is a read-only view over the session's audit events.
 3. New: **Export dialog** with filters and format (replaces the simple export panel in U7).
-4. New: **Document mode** in Chat (U11).
+4. New: **file attachments** in Chat through the plus menu (U11); there is no separate Document mode.
 5. New: **Threats stopped** and **Data protection** charts (U8), **Known attacks**, **Policy at a glance** (U9), budget burn rate, speed charts and **missed attacks / false blocks** (U10).
 6. New: **States** coverage (task U13).
 7. Still out of scope: honeypot panel, session replay, follow mode, attack mode, a "re-run tests" button.

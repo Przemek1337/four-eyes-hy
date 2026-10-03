@@ -59,8 +59,8 @@ describe("App shell", () => {
     });
     render(<App />);
     await userEvent.click(screen.getByRole("tab", { name: "Chat" }));
-    await userEvent.click(screen.getByRole("tab", { name: "Document" }));
-    await userEvent.type(screen.getByLabelText("Message"), "a client file");
+    await userEvent.click(screen.getByRole("button", { name: "Add an attachment" }));
+    await userEvent.click(screen.getByRole("menuitem", { name: "Clean client document" }));
     await userEvent.click(screen.getByRole("button", { name: "Send" }));
     await userEvent.click(await screen.findByRole("button", { name: "Open this session in Security" }));
     expect(screen.getByRole("tab", { name: "Security" })).toHaveAttribute("aria-selected", "true");
