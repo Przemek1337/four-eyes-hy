@@ -203,6 +203,31 @@ describe("SessionDetail", () => {
     expect(await screen.findByRole("region", { name: "Where the data went" })).toBeInTheDocument();
   });
 
+  it("shows an approval card per approval, pending first, and none when there are none", async () => {
+    vi.mocked(api.session).mockResolvedValue({ ...detail, approvals: [fx.approval({ id: "old", status: "approved", decided_by: "officer" }), fx.approval()] });
+    const { unmount } = render(<SessionDetail sessionId="a41f" />);
+    const cards = await screen.findAllByRole("region", { name: "Approval card" });
+    expect(cards).toHaveLength(2);
+    expect(cards[0]).toHaveTextContent("Needs a second pair of eyes"); // pending one sorts first
+    expect(cards[1]).toHaveTextContent("Approved by officer");
+    unmount();
+    vi.mocked(api.session).mockResolvedValue({ ...detail, approvals: [] });
+    render(<SessionDetail sessionId="a41f" />);
+    await screen.findByRole("region", { name: "Why this decision" });
+    expect(screen.queryByRole("region", { name: "Approval card" })).not.toBeInTheDocument();
+  });
+
+  it("refreshes the session after a decision", async () => {
+    vi.mocked(api.session).mockResolvedValue({ ...detail, approvals: [fx.approval()] });
+    vi.mocked(api.decide).mockResolvedValue(fx.approval({ status: "denied", decided_by: "compliance" }));
+    const onDecided = vi.fn();
+    render(<SessionDetail sessionId="a41f" onDecided={onDecided} />);
+    await userEvent.click(await screen.findByRole("button", { name: "Deny" }));
+    await screen.findByText("Denied by compliance");
+    expect(onDecided).toHaveBeenCalledTimes(1);
+    expect(vi.mocked(api.session).mock.calls.length).toBeGreaterThan(1); // reloaded
+  });
+
   it("shows an error when the session cannot be loaded", async () => {
     vi.mocked(api.session).mockRejectedValue(new Error("unknown session"));
     render(<SessionDetail sessionId="nope" />);
