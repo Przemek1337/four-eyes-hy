@@ -10,8 +10,8 @@ const PAD = { l: 40, r: 56, t: 14, b: 28 };
 
 /** One series over time: 2 px line, a 10% wash under it, hairline grid, the latest value labelled at the end.
  *  A crosshair snaps to the nearest point; arrow keys do the same. Every value is also in the table view. */
-export function LineChart({ title, sub, seriesLabel, points, emptyText = "No data in this window yet." }: {
-  title: string; sub?: string; seriesLabel: string; points: Point[]; emptyText?: string;
+export function LineChart({ title, sub, seriesLabel, points, format = fmtCount, emptyText = "No data in this window yet." }: {
+  title: string; sub?: string; seriesLabel: string; points: Point[]; format?: (v: number) => string; emptyText?: string;
 }) {
   const [wrap, width] = useWidth<HTMLDivElement>();
   const svg = useRef<SVGSVGElement>(null);
@@ -21,7 +21,7 @@ export function LineChart({ title, sub, seriesLabel, points, emptyText = "No dat
     <table className="chart-table">
       <caption>{seriesLabel} over time</caption>
       <thead><tr><th>Time</th><th>{seriesLabel}</th></tr></thead>
-      <tbody>{points.map((p) => <tr key={p.t}><td>{fmtClock(p.t)}</td><td>{fmtCount(p.v)}</td></tr>)}</tbody>
+      <tbody>{points.map((p) => <tr key={p.t}><td>{fmtClock(p.t)}</td><td>{format(p.v)}</td></tr>)}</tbody>
     </table>
   );
 
@@ -67,11 +67,11 @@ export function LineChart({ title, sub, seriesLabel, points, emptyText = "No dat
     <ChartFrame title={title} sub={sub} table={table}>
       <div className="plot" ref={wrap}>
         <svg ref={svg} width={width} height={H} role="img"
-             aria-label={`${seriesLabel}: ${fmtCount(total)} in total, peak ${fmtCount(peak.v)} at ${fmtClock(peak.t)}, latest ${fmtCount(last.v)}`}>
+             aria-label={`${seriesLabel}: ${format(total)} in total, peak ${format(peak.v)} at ${fmtClock(peak.t)}, latest ${format(last.v)}`}>
           {yTicks.map((tv) => (
             <g key={tv}>
               <line className="grid" x1={PAD.l} x2={width - PAD.r} y1={y(tv)} y2={y(tv)} />
-              <text className="tick" x={PAD.l - 8} y={y(tv) + 4} textAnchor="end">{fmtCount(tv)}</text>
+              <text className="tick" x={PAD.l - 8} y={y(tv) + 4} textAnchor="end">{format(tv)}</text>
             </g>
           ))}
           {xTicks.map((p, i) => (
@@ -81,7 +81,7 @@ export function LineChart({ title, sub, seriesLabel, points, emptyText = "No dat
           <path d={line} className="line" />
           <circle className="end-ring" cx={x(last.t)} cy={y(last.v)} r={6} />
           <circle className="end-dot" cx={x(last.t)} cy={y(last.v)} r={4} />
-          <text className="end-label" x={x(last.t) + 12} y={y(last.v) + 4}>{fmtCount(last.v)}</text>
+          <text className="end-label" x={x(last.t) + 12} y={y(last.v) + 4}>{format(last.v)}</text>
           {a && (
             <g>
               <line className="cross" x1={x(a.t)} x2={x(a.t)} y1={PAD.t} y2={PAD.t + ih} />
@@ -99,7 +99,7 @@ export function LineChart({ title, sub, seriesLabel, points, emptyText = "No dat
         </svg>
         {a && (
           <div className="tip" role="status" style={{ left: tipLeft, top: Math.max(0, y(a.v) - 56) }}>
-            <b>{fmtCount(a.v)}</b>
+            <b>{format(a.v)}</b>
             <span><i className="key" aria-hidden="true" />{seriesLabel}</span>
             <small>{fmtClock(a.t)}</small>
           </div>

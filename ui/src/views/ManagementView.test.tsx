@@ -4,7 +4,7 @@ import { fx } from "../test/fixtures";
 import { ManagementView } from "./ManagementView";
 
 vi.mock("../api/client", () => ({
-  api: { metrics: vi.fn(), posture: vi.fn(), owasp: vi.fn(), timeseries: vi.fn(), controls: vi.fn(), policy: vi.fn(), signatures: vi.fn() },
+  api: { metrics: vi.fn(), posture: vi.fn(), owasp: vi.fn(), timeseries: vi.fn(), controls: vi.fn(), policy: vi.fn(), signatures: vi.fn(), budgets: vi.fn(), tests: vi.fn() },
 }));
 
 beforeEach(() => {
@@ -15,6 +15,8 @@ beforeEach(() => {
   vi.mocked(api.controls).mockResolvedValue({ controls: fx.controls().map((c) => ({ ...c, status: "active" as const })), last_diff: [] });
   vi.mocked(api.policy).mockResolvedValue(fx.policy());
   vi.mocked(api.signatures).mockResolvedValue(fx.signatures());
+  vi.mocked(api.budgets).mockResolvedValue(fx.budgets());
+  vi.mocked(api.tests).mockResolvedValue(fx.tests());
 });
 
 describe("ManagementView", () => {
@@ -36,6 +38,24 @@ describe("ManagementView", () => {
     expect(await screen.findByRole("region", { name: "Policy at a glance" })).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: "Known attacks blocked" })).toBeInTheDocument();
     expect(await screen.findByRole("region", { name: "Policy and feed" })).toBeInTheDocument();
+  });
+
+  it("shows cost, speed and proof sections", async () => {
+    render(<ManagementView />);
+    expect(await screen.findByRole("region", { name: "Budgets and cost" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Gateway overhead" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Test suite" })).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Missed attacks" })).toBeInTheDocument();
+  });
+
+  it("keeps the other sections when budgets or tests cannot be loaded", async () => {
+    vi.mocked(api.budgets).mockRejectedValue(new Error("no budgets"));
+    vi.mocked(api.tests).mockRejectedValue(new Error("no report"));
+    render(<ManagementView />);
+    expect(await screen.findByRole("region", { name: "Gateway overhead" })).toBeInTheDocument();
+    const alerts = await screen.findAllByRole("alert");
+    expect(alerts.map((a) => a.textContent).join(" ")).toMatch(/no budgets/);
+    expect(alerts.map((a) => a.textContent).join(" ")).toMatch(/no report/);
   });
 
   it("warns from the controls table even when the posture endpoint is silent about it", async () => {
@@ -64,7 +84,7 @@ describe("ManagementView", () => {
     vi.mocked(api.timeseries).mockRejectedValue(new Error("no series"));
     render(<ManagementView />);
     expect(await screen.findByRole("group", { name: "Blocked" })).toBeInTheDocument();
-    expect(screen.getByText("No data in this window yet.")).toBeInTheDocument();
+    expect(screen.getAllByText("No data in this window yet.").length).toBeGreaterThanOrEqual(2); // blocked and requests charts
   });
 
   it("explains a failed load on every panel instead of crashing", async () => {
