@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api/client";
 import type { SessionFilters } from "../api/types";
 import { ApprovalQueue } from "../components/ApprovalQueue";
+import { SessionDetail } from "../components/SessionDetail";
 import { SessionList } from "../components/SessionList";
 import { usePolling } from "../hooks/usePolling";
 
@@ -12,13 +13,10 @@ export function SecurityView() {
   const approvals = usePolling(() => api.approvals("pending"), []);
 
   if (selected) {
-    // Task 5 fills the detail view; until then it only holds the way back.
     return (
       <section aria-label="Security view">
         <button className="back" onClick={() => setSelected(null)}>← Sessions</button>
-        <section aria-label="Session detail">
-          <h1 className="page-title">Session {selected}</h1>
-        </section>
+        <SessionDetail key={selected} sessionId={selected} onDecided={approvals.refresh} />
       </section>
     );
   }
