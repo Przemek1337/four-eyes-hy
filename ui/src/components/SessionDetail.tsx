@@ -3,13 +3,14 @@ import { api } from "../api/client";
 import type { SessionDetailT } from "../api/types";
 import { usePolling } from "../hooks/usePolling";
 import { buildTimeline, headlineFor, taintedFrom } from "../timeline";
+import { ApprovalCard } from "./ApprovalCard";
 import { Async } from "./Async";
 import { FlowMap } from "./FlowMap";
 import { SessionHeader } from "./SessionHeader";
 import { Timeline } from "./Timeline";
 import { WhyBlocked } from "./WhyBlocked";
 
-function Detail({ data }: { data: SessionDetailT }) {
+function Detail({ data, onDecided }: { data: SessionDetailT; onDecided: () => void }) {
   const items = useMemo(() => buildTimeline(data.events), [data.events]);
   const steps = items.filter((i) => i.kind === "step");
   // Until the user touches anything, the steps FourEyes stopped or held are open: that is the story.
@@ -25,7 +26,9 @@ function Detail({ data }: { data: SessionDetailT }) {
     const id = ev.detail?.approval_id as string | undefined;
     return data.approvals.find((a) => a.id === id) ?? null;
   };
-  return (
+  // Pending approvals first; decided ones stay visible so the outcome does not vanish on the next refresh.
+  const approvals = [...data.approvals].sort((a, b) => Number(b.status === "pending") - Number(a.status === "pending"));
+  const main = (
     <>
       <SessionHeader session={data.session} headline={headlineFor(data.session, items)} taintedFrom={taintedFrom(items)} />
       {data.flow && <FlowMap flow={data.flow} />}
@@ -45,13 +48,26 @@ function Detail({ data }: { data: SessionDetailT }) {
       />
     </>
   );
+  if (approvals.length === 0) return main;
+  return (
+    <div className="split">
+      <div className="detail-main">{main}</div>
+      <aside className="review-col" aria-label="Approvals">
+        {approvals.map((a) => <ApprovalCard key={a.id} approval={a} onDecided={onDecided} />)}
+      </aside>
+    </div>
+  );
 }
 
-export function SessionDetail({ sessionId }: { sessionId: string; onDecided?: () => void }) {
+export function SessionDetail({ sessionId, onDecided }: { sessionId: string; onDecided?: () => void }) {
   const state = usePolling(() => api.session(sessionId), [sessionId]);
+  const decided = () => {
+    state.refresh();
+    onDecided?.();
+  };
   return (
     <section aria-label="Session detail" className="detail">
-      <Async state={state} emptyText="Session not found.">{(data) => <Detail data={data} />}</Async>
+      <Async state={state} emptyText="Session not found.">{(data) => <Detail data={data} onDecided={decided} />}</Async>
     </section>
   );
 }
