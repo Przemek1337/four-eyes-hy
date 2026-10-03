@@ -12,9 +12,15 @@ import { WhyBlocked } from "./WhyBlocked";
 function Detail({ data }: { data: SessionDetailT }) {
   const items = useMemo(() => buildTimeline(data.events), [data.events]);
   const steps = items.filter((i) => i.kind === "step");
-  const defaultKey = [...steps].reverse().find((s) => s.tone === "red")?.key ?? steps[steps.length - 1]?.key ?? null;
-  const [picked, setPicked] = useState<string | null>(null);
-  const key = picked && steps.some((s) => s.key === picked) ? picked : defaultKey;
+  // Until the user touches anything, the steps FourEyes stopped or held are open: that is the story.
+  const [picked, setPicked] = useState<Set<string> | null>(null);
+  const expanded = picked ?? new Set(steps.filter((s) => s.decision === "BLOCK" || s.decision === "APPROVAL").map((s) => s.key));
+  const toggle = (key: string) => {
+    const next = new Set(expanded);
+    if (next.has(key)) next.delete(key); else next.add(key);
+    setPicked(next);
+  };
+  const allOpen = steps.length > 0 && steps.every((s) => expanded.has(s.key));
   const approvalFor = (ev: SessionDetailT["events"][number]) => {
     const id = ev.detail?.approval_id as string | undefined;
     return data.approvals.find((a) => a.id === id) ?? null;
@@ -23,10 +29,18 @@ function Detail({ data }: { data: SessionDetailT }) {
     <>
       <SessionHeader session={data.session} headline={headlineFor(data.session, items)} taintedFrom={taintedFrom(items)} />
       {data.flow && <FlowMap flow={data.flow} />}
+      {steps.length > 0 && (
+        <div className="tl-tools">
+          <h2>What happened, step by step</h2>
+          <button className="btn-sm" onClick={() => setPicked(allOpen ? new Set() : new Set(steps.map((s) => s.key)))}>
+            {allOpen ? "Collapse all" : "Expand all"}
+          </button>
+        </div>
+      )}
       <Timeline
         items={items}
-        selectedKey={key}
-        onSelect={setPicked}
+        expanded={expanded}
+        onToggle={toggle}
         renderDetail={(it) => <WhyBlocked event={it.event} approval={approvalFor(it.event)} />}
       />
     </>

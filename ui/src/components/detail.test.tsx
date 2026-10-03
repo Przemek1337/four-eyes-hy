@@ -48,32 +48,39 @@ describe("Timeline", () => {
     fx.decision({ decision_id: "d4", resource: "send_email", decision: "APPROVAL", labels: ["untrusted"] }),
   ]);
 
-  it("renders a button per step and a small row per note, with state classes", async () => {
-    const onSelect = vi.fn();
-    render(<Timeline items={items} selectedKey="d3" onSelect={onSelect} />);
+  it("renders a toggle button per step and a small row per note, with state classes", () => {
+    render(<Timeline items={items} expanded={new Set(["d3"])} onToggle={() => {}} />);
     const buttons = screen.getAllByRole("button");
     expect(buttons).toHaveLength(3);
-    expect(buttons[1]).toHaveAttribute("aria-pressed", "true");
-    expect(buttons[1].closest("li")).toHaveClass("stop", "dirty", "first");
+    expect(buttons[1]).toHaveAttribute("aria-expanded", "true");
+    expect(buttons[0]).toHaveAttribute("aria-expanded", "false");
+    expect(buttons[1].closest("li")).toHaveClass("stop", "dirty", "first", "open");
     expect(buttons[2].closest("li")).toHaveClass("hold", "last");
     expect(buttons[0].closest("li")).not.toHaveClass("dirty");
     expect(screen.getByText("high_risk")).toBeInTheDocument();
     expect(screen.getAllByText("Session is untrusted from here")).toHaveLength(1); // once, at the start of the band
-    await userEvent.click(buttons[0]);
-    expect(onSelect).toHaveBeenCalledWith("d1");
   });
-  it("puts the detail under the selected step only", () => {
-    render(<Timeline items={items} selectedKey="d3" onSelect={() => {}} renderDetail={(it) => <p>detail for {it.key}</p>} />);
+  it("labels the toggle by state and reports which step was toggled", async () => {
+    const onToggle = vi.fn();
+    render(<Timeline items={items} expanded={new Set(["d3"])} onToggle={onToggle} />);
+    expect(screen.getAllByText("Hide details")).toHaveLength(1);
+    expect(screen.getAllByText("Show details")).toHaveLength(2);
+    await userEvent.click(screen.getAllByRole("button")[0]);
+    expect(onToggle).toHaveBeenCalledWith("d1");
+  });
+  it("shows detail under every expanded step and under no other", () => {
+    render(<Timeline items={items} expanded={new Set(["d1", "d3"])} onToggle={() => {}} renderDetail={(it) => <p>detail for {it.key}</p>} />);
+    expect(screen.getByText("detail for d1")).toBeInTheDocument();
     expect(screen.getByText("detail for d3")).toBeInTheDocument();
-    expect(screen.queryByText("detail for d1")).not.toBeInTheDocument();
+    expect(screen.queryByText("detail for d4")).not.toBeInTheDocument();
   });
   it("shows an empty state", () => {
-    render(<Timeline items={[]} selectedKey={null} onSelect={() => {}} />);
+    render(<Timeline items={[]} expanded={new Set()} onToggle={() => {}} />);
     expect(screen.getByText("No steps recorded yet.")).toBeInTheDocument();
   });
   it("renders hostile and huge text as plain text", () => {
     const hostile = fx.decision({ decision_id: "h", decision: "BLOCK", rule: "<script>alert(1)</script>", code: "x".repeat(10_000) });
-    const { container } = render(<Timeline items={buildTimeline([hostile])} selectedKey={null} onSelect={() => {}} />);
+    const { container } = render(<Timeline items={buildTimeline([hostile])} expanded={new Set()} onToggle={() => {}} />);
     expect(container.querySelector("script")).toBeNull();
     expect(container.textContent).toContain("<script>alert(1)</script>");
   });
@@ -144,14 +151,32 @@ describe("SessionDetail", () => {
     approvals: [],
   };
 
-  it("selects the stopped step by default and lets the user inspect another one", async () => {
+  it("opens the stopped steps by default and lets the user open and close any step", async () => {
     vi.mocked(api.session).mockResolvedValue(detail);
     render(<SessionDetail sessionId="a41f" />);
     const why = await screen.findByRole("region", { name: "Why this decision" });
     expect(within(why).getByText("KNOWN_ATTACK")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /tried entities_submit and FourEyes stopped it/ })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: /entities_documents_read/ }));
-    expect(within(screen.getByRole("region", { name: "Why this decision" })).getByText("ALLOW")).toBeInTheDocument();
+    expect(screen.getAllByRole("region", { name: "Why this decision" })).toHaveLength(1); // only the stopped step
+
+    const read = screen.getByRole("button", { name: /entities_documents_read/ });
+    expect(read).toHaveAttribute("aria-expanded", "false");
+    await userEvent.click(read);
+    expect(read).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getAllByRole("region", { name: "Why this decision" })).toHaveLength(2); // both open at once
+    await userEvent.click(read);
+    expect(screen.getAllByRole("region", { name: "Why this decision" })).toHaveLength(1);
+  });
+
+  it("expands and collapses every step at once", async () => {
+    vi.mocked(api.session).mockResolvedValue(detail);
+    render(<SessionDetail sessionId="a41f" />);
+    await screen.findByRole("region", { name: "Why this decision" });
+    await userEvent.click(screen.getByRole("button", { name: "Expand all" }));
+    expect(screen.getAllByRole("region", { name: "Why this decision" })).toHaveLength(3);
+    await userEvent.click(screen.getByRole("button", { name: "Collapse all" }));
+    expect(screen.queryByRole("region", { name: "Why this decision" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Expand all" })).toBeInTheDocument();
   });
 
   it("shows the data-flow map only when the backend provides it", async () => {
