@@ -27,6 +27,15 @@ describe("SecurityView", () => {
     expect(await screen.findByRole("region", { name: "Pending approvals (1)" })).toBeInTheDocument();
   });
 
+  it("opens the export dialog from the list", async () => {
+    render(<SecurityView />);
+    await userEvent.click(await screen.findByRole("button", { name: "Export audit log" }));
+    expect(screen.getByRole("dialog", { name: "Export audit log" })).toBeInTheDocument();
+    expect(screen.getByText("Export contains redacted content only")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
   it("opens the session behind a pending approval and goes back", async () => {
     render(<SecurityView />);
     await userEvent.click(await screen.findByRole("button", { name: "Review" }));

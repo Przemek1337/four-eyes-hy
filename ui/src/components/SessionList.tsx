@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import type { SessionFilters, SessionRow } from "../api/types";
 import { fmtTime } from "../format";
 import { DecisionPill, StatusMark } from "./Badge";
@@ -9,11 +10,12 @@ const QUICK = [
   { label: "Needs approval", decision: "APPROVAL" },
 ];
 
-export function SessionList({ rows, onSelect, filters, onFilters }: {
+export function SessionList({ rows, onSelect, filters, onFilters, actions }: {
   rows: SessionRow[];
   onSelect: (id: string) => void;
   filters: SessionFilters;
   onFilters: (f: SessionFilters) => void;
+  actions?: ReactNode;
 }) {
   const set = (patch: SessionFilters) => onFilters({ ...filters, ...patch });
   const decision = filters.decision ?? "";
@@ -30,6 +32,7 @@ export function SessionList({ rows, onSelect, filters, onFilters }: {
         <select aria-label="Data class" value={filters.data_class ?? ""} onChange={(e) => set({ data_class: e.target.value })}>
           {CLASSES.map((c) => <option key={c} value={c}>{c || "Any class"}</option>)}
         </select>
+        {actions && <><span className="grow" />{actions}</>}
       </div>
       {rows.length === 0 ? (
         <p className="state">No sessions match.</p>

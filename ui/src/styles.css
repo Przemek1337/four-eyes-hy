@@ -260,3 +260,28 @@ pre.evidence { margin: 0; padding: 12px 14px; background: var(--ink); border: 1p
 .btn:hover:not(:disabled) { filter: brightness(1.12); }
 .fine { margin-top: 16px; color: var(--faint); font-size: 13px; text-align: center; }
 @media (max-width: 1180px) { .review-col { position: static; max-width: 520px; } }
+
+/* export dialog */
+.tools .grow { flex: 1; }
+.modal-backdrop { position: fixed; inset: 0; background: rgba(0, 0, 0, 0.7); display: grid; place-items: center; padding: 16px; z-index: 50; }
+.modal { background: var(--surface); border: 1px solid var(--line); border-radius: 28px; padding: 32px; width: min(620px, 100%); max-height: calc(100vh - 32px); overflow: auto; }
+.modal:focus { outline: none; }
+.modal h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; }
+.fg { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 24px 0; }
+.fg label { display: grid; gap: 6px; color: var(--muted); font-size: 13px; }
+.fg select, .fg input { border-radius: 12px; background: var(--ink); }
+fieldset { border: 0; padding: 0; margin: 0 0 20px; }
+legend { color: var(--muted); font-size: 13px; margin-bottom: 8px; padding: 0; }
+.chk { display: flex; gap: 20px; flex-wrap: wrap; }
+.chk label { display: flex; gap: 8px; align-items: center; }
+.chk input { accent-color: var(--hold); }
+.seg { display: inline-flex; padding: 4px; background: var(--ink); border-radius: 999px; }
+.seg button { border: 0; background: none; padding: 8px 22px; border-radius: 999px; color: var(--muted); }
+.seg button[aria-pressed="true"] { background: var(--text); color: var(--ink); font-weight: 600; }
+.note { color: var(--faint); font-size: 13px; margin-top: 10px; }
+.redact-note { color: var(--text); font-weight: 600; margin-top: 4px; }
+.endpoint { display: block; margin-top: 8px; color: var(--faint); font-size: 12px; overflow-wrap: anywhere; }
+.dlg-actions { display: flex; gap: 12px; justify-content: flex-end; margin-top: 24px; }
+.dlg-actions .btn { padding: 12px 28px; text-decoration: none; text-align: center; }
+.btn.disabled { opacity: 0.5; cursor: not-allowed; }
+@media (max-width: 820px) { .fg { grid-template-columns: 1fr; } .modal { padding: 24px 20px; } }
