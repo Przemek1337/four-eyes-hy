@@ -4,13 +4,14 @@ import { fx } from "../test/fixtures";
 import { ManagementView } from "./ManagementView";
 
 vi.mock("../api/client", () => ({
-  api: { metrics: vi.fn(), posture: vi.fn(), owasp: vi.fn() },
+  api: { metrics: vi.fn(), posture: vi.fn(), owasp: vi.fn(), timeseries: vi.fn() },
 }));
 
 beforeEach(() => {
   vi.mocked(api.metrics).mockResolvedValue(fx.metrics());
   vi.mocked(api.posture).mockResolvedValue(fx.posture({ score: 100, breakdown: [] }));
   vi.mocked(api.owasp).mockResolvedValue(fx.owasp());
+  vi.mocked(api.timeseries).mockResolvedValue(fx.timeseries());
 });
 
 describe("ManagementView", () => {
@@ -19,6 +20,9 @@ describe("ManagementView", () => {
     expect(await screen.findByRole("img", { name: "Security posture 100 out of 100" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Requests" })).toHaveTextContent("1,284");
     expect(await screen.findByRole("heading", { name: /OWASP LLM Top 10/ })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Threats stopped" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Data protection" })).toBeInTheDocument();
+    expect(await screen.findByRole("img", { name: /Blocked: 54 in total/ })).toBeInTheDocument();
     expect(screen.getByText(/Policy v4\./)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
@@ -35,6 +39,13 @@ describe("ManagementView", () => {
     vi.mocked(api.metrics).mockResolvedValue(fx.metrics({ private_to_external: 2 }));
     render(<ManagementView />);
     expect(await screen.findByText("Private data reached an external model.")).toBeInTheDocument();
+  });
+
+  it("still shows the figures when the time series cannot be loaded", async () => {
+    vi.mocked(api.timeseries).mockRejectedValue(new Error("no series"));
+    render(<ManagementView />);
+    expect(await screen.findByRole("group", { name: "Blocked" })).toBeInTheDocument();
+    expect(screen.getByText("No data in this window yet.")).toBeInTheDocument();
   });
 
   it("explains a failed load on every panel instead of crashing", async () => {

@@ -1,6 +1,6 @@
 import type {
   ApprovalT, BudgetsT, ChatResult, ControlRow, ExportFilters, Metrics, OwaspT, PolicyT, PostureT,
-  SessionDetailT, SessionFilters, SessionRow, SignaturesT, TestsT,
+  SessionDetailT, SessionFilters, SessionRow, SignaturesT, TestsT, TimeseriesT,
 } from "./types";
 
 export class ApiError extends Error {
@@ -47,6 +47,7 @@ export const api = {
   policy: () => request<PolicyT>("/admin/policy"),
   budgets: () => request<BudgetsT>("/admin/budgets"),
   signatures: () => request<SignaturesT>("/admin/signatures"),
+  timeseries: (window = "24h") => request<TimeseriesT>(`/admin/timeseries${qs({ window })}`),
   tests: () => request<TestsT>("/admin/tests"),
   chat: (body: { mode: "prompt" | "document"; text: string; session_id?: string; model?: string }) =>
     request<ChatResult>("/admin/chat", { method: "POST", body: JSON.stringify(body) }),

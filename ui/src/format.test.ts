@@ -1,4 +1,4 @@
-import { classTone, decisionTone, fmtMs, fmtPct, fmtUsd, shortHash, statusTone } from "./format";
+import { classTone, decisionTone, fmtDuration, fmtMs, fmtPct, fmtUsd, shortHash, statusTone } from "./format";
 
 describe("formatters", () => {
   it("formats latency with sensible precision and tolerates missing values", () => {
@@ -27,5 +27,13 @@ describe("formatters", () => {
     expect(statusTone("high_risk")).toBe("green");
     expect(statusTone("untrusted")).toBe("orange");
     expect(statusTone("clean")).toBe("blue");
+  });
+  it("reads durations the way a person would say them", () => {
+    expect(fmtDuration(42)).toBe("42 s");
+    expect(fmtDuration(120)).toBe("2 min");
+    expect(fmtDuration(138)).toBe("2 min 18 s");
+    expect(fmtDuration(3900)).toBe("1 h 5 min");
+    expect(fmtDuration(null)).toBe("–");
+    expect(fmtDuration(Number.NaN)).toBe("–");
   });
 });

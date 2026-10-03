@@ -1,4 +1,4 @@
-import type { ApprovalT, AuditEvent, FlowT, Metrics, OwaspT, PostureT, SessionRow } from "../api/types";
+import type { ApprovalT, AuditEvent, FlowT, Metrics, OwaspT, PostureT, SessionRow, TimeseriesT } from "../api/types";
 
 export const session = (over: Partial<SessionRow> = {}): SessionRow => ({
   session_id: "a41f", agent: "kyc-agent", client: "Nowak Logistics", started: 1_760_000_000, steps: 5, labels: ["untrusted", "high_risk"],
@@ -50,13 +50,27 @@ export const metrics = (over: Partial<Metrics> = {}): Metrics => ({
   },
   cost: { local_usd: 0, external_usd: 0.84, compute_s: 42.3 },
   feed: { version: "2026.10.03", count: 7, last_reload: 1_760_000_000, error: null, source: "./feeds/signatures.json" },
+  top_blockers: [
+    { rule: "sig.feed", owasp: ["LLM01:2026"], blocked: 44 },
+    { rule: "flow.untrusted", owasp: ["LLM01:2026", "LLM03:2026"], blocked: 31 },
+    { rule: "authz.tools", owasp: ["LLM03:2026"], blocked: 22 },
+  ],
+  routing: [
+    { data_class: "public", local: 320, external: 180 },
+    { data_class: "personal_data", local: 400, external: 0 },
+    { data_class: "bank_secret", local: 84, external: 0 },
+  ],
+  redacted_fields: 61,
+  approval_median_s: 138,
+  approvals_expired: 0,
   ...over,
 });
 
 export const posture = (over: Partial<PostureT> = {}): PostureT => ({
   score: 90, max: 100,
   breakdown: [{ item: "dlp.redact_inflight", delta: -10, note: "removed" }],
-  formula: "score = 100 minus control weights for removed or monitor-only controls, minus penalties", ...over,
+  formula: "score = 100 minus control weights for removed or monitor-only controls, minus penalties",
+  controls_active: 14, controls_total: 15, ...over,
 });
 
 export const owasp = (over: Partial<OwaspT> = {}): OwaspT => ({
@@ -69,4 +83,12 @@ export const owasp = (over: Partial<OwaspT> = {}): OwaspT => ({
   ...over,
 });
 
-export const fx = { session, approval, decision, flow, metrics, posture, owasp };
+export const timeseries = (over: Partial<TimeseriesT> = {}): TimeseriesT => ({
+  bucket_s: 3600,
+  points: [3, 5, 2, 0, 1, 4, 12, 7, 3, 2, 6, 9].map((blocked, i) => ({
+    ts: 1_760_000_000 + i * 3600, requests: 60 + i * 3, blocked, approval: i % 4 === 0 ? 1 : 0, redact: 4, gateway_p95_ms: 14 + (i % 5),
+  })),
+  ...over,
+});
+
+export const fx = { session, approval, decision, flow, metrics, posture, owasp, timeseries };

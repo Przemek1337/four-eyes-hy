@@ -37,6 +37,13 @@ describe("api client", () => {
     expect(fetchMock.mock.calls[0][0]).toBe("/admin/signatures");
   });
 
+  it("reads the time series for a window", async () => {
+    const fetchMock = mockFetch({ bucket_s: 3600, points: [] });
+    vi.stubGlobal("fetch", fetchMock);
+    await api.timeseries();
+    expect(fetchMock.mock.calls[0][0]).toBe("/admin/timeseries?window=24h");
+  });
+
   it("turns error responses into ApiError with the server message", async () => {
     vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({ detail: "unknown approval" }), { status: 404 }))));
     await expect(api.approvals()).rejects.toMatchObject({ status: 404, message: "unknown approval" });

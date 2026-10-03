@@ -10,8 +10,8 @@ export function OwaspPanel({ owasp }: { owasp: OwaspT }) {
   if (count("uncovered") > 0) parts.push(`${count("uncovered")} uncovered`);
   return (
     <section className="sec" aria-label="OWASP coverage">
-      <h2>OWASP LLM Top 10 ({owasp.edition}): {owasp.tested} categories tested</h2>
-      <p className="sub">{parts.join(", ")}. Coverage follows the controls active right now.</p>
+      <h2>OWASP LLM Top 10 ({owasp.edition}) coverage</h2>
+      <p className="sub">{parts.join(", ")}. Follows the controls active right now. {owasp.tested} categories have a passing test.</p>
       <div className="owasp">
         {owasp.categories.map((c) => (
           <div key={c.id} className="ot" role="group" aria-label={c.id}>

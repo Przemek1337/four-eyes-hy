@@ -20,16 +20,20 @@ export function PosturePanel({ posture }: { posture: PostureT }) {
 }
 
 export function DeductionLine({ posture }: { posture: PostureT }) {
-  if (posture.breakdown.length === 0) {
-    return <p className="deduct">No deductions. All controls active, signature feed current, AI models up, tests passing.</p>;
-  }
+  const controls = posture.controls_total != null && posture.controls_active != null
+    ? `${posture.controls_active} of ${posture.controls_total} controls active. ` : "";
   return (
     <div className="deduct">
-      <p><b>{posture.score} of {posture.max}.</b>{" "}
-        {posture.breakdown.map((b, i) => (
-          <span key={b.item}>{i > 0 ? ", " : ""}<code>{b.item}</code> {b.note} ({fmtDelta(b.delta)})</span>
-        ))}
-      </p>
+      <p className="faint">Share of the policy’s protection that is switched on. It is not a risk score.</p>
+      {posture.breakdown.length === 0 ? (
+        <p>{controls}No deductions. Signature feed current, AI models up, tests passing.</p>
+      ) : (
+        <p><b>{posture.score} of {posture.max}.</b> {controls}
+          {posture.breakdown.map((b, i) => (
+            <span key={b.item}>{i > 0 ? ", " : ""}<code>{b.item}</code> {b.note} ({fmtDelta(b.delta)})</span>
+          ))}
+        </p>
+      )}
       {posture.formula && <p className="faint formula">{posture.formula}</p>}
     </div>
   );
