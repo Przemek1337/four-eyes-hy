@@ -9,7 +9,10 @@ class NoopEventSource {
   close() {}
 }
 
-beforeEach(() => vi.stubGlobal("EventSource", NoopEventSource));
+beforeEach(() => {
+  vi.stubGlobal("EventSource", NoopEventSource);
+  vi.stubGlobal("fetch", () => new Promise(() => {})); // views start loading; never answer, so no late state updates
+});
 afterEach(() => vi.unstubAllGlobals());
 
 describe("App shell", () => {
