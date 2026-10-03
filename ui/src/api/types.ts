@@ -22,6 +22,19 @@ export interface Metrics {
   cost: { local_usd: number; external_usd: number; compute_s: number };
   feed: FeedStatus;
   throughput_per_min?: number;
+  /** rules that stopped the most requests in the window */
+  top_blockers?: { rule: string; owasp: string[]; blocked: number }[];
+  /** per data class: requests answered by a local model vs sent to an external one */
+  routing?: { data_class: string; local: number; external: number }[];
+  redacted_fields?: number;
+  /** median seconds between an approval being requested and decided; null when none was decided */
+  approval_median_s?: number | null;
+  approvals_expired?: number;
+}
+
+export interface TimeseriesT {
+  bucket_s: number;
+  points: { ts: number; requests: number; blocked: number; approval: number; redact: number; gateway_p95_ms: number | null }[];
 }
 
 export interface SessionRow {
@@ -135,7 +148,10 @@ export interface ControlRow {
   weight: number;
 }
 
-export interface PostureT { score: number; max: number; breakdown: { item: string; delta: number; note: string }[]; formula?: string }
+export interface PostureT {
+  score: number; max: number; breakdown: { item: string; delta: number; note: string }[]; formula?: string;
+  controls_active?: number; controls_total?: number;
+}
 
 export interface OwaspT {
   edition: string;

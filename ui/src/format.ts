@@ -23,3 +23,11 @@ export const classTone = (c?: string | null): Tone =>
   c === "bank_secret" || c === "personal_data" ? "green" : "gray";
 export const statusTone = (s?: string | null): Tone =>
   s === "high_risk" ? "green" : s === "untrusted" ? "orange" : "blue";
+
+export const fmtDuration = (s: number | null | undefined): string => {
+  if (s == null || Number.isNaN(s)) return "–";
+  const t = Math.round(s);
+  if (t < 60) return `${t} s`;
+  if (t < 3600) return t % 60 === 0 ? `${t / 60} min` : `${Math.floor(t / 60)} min ${t % 60} s`;
+  return `${Math.floor(t / 3600)} h ${Math.round((t % 3600) / 60)} min`;
+};
