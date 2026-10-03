@@ -7,9 +7,9 @@ import { SessionDetail } from "../components/SessionDetail";
 import { SessionList } from "../components/SessionList";
 import { usePolling } from "../hooks/usePolling";
 
-export function SecurityView() {
+export function SecurityView({ initialSessionId = null }: { initialSessionId?: string | null }) {
   const [filters, setFilters] = useState<SessionFilters>({});
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(initialSessionId);
   const [exporting, setExporting] = useState(false);
   const sessions = usePolling(() => api.sessions(filters), [JSON.stringify(filters)]);
   const approvals = usePolling(() => api.approvals("pending"), []);

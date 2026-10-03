@@ -12,17 +12,17 @@ const ICONS = {
 };
 
 const TABS = [
-  { id: "security", label: "Security", render: () => <SecurityView /> },
-  { id: "management", label: "Management", render: () => <ManagementView /> },
-  { id: "chat", label: "Chat", render: () => <ChatView /> },
+  { id: "security", label: "Security" },
+  { id: "management", label: "Management" },
+  { id: "chat", label: "Chat" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
 
 function Shell() {
   const [tab, setTab] = useState<TabId>("security");
+  const [openSession, setOpenSession] = useState<{ id: string; n: number } | null>(null);
   const { connected } = useLive();
-  const active = TABS.find((t) => t.id === tab)!;
   return (
     <div className="app">
       <aside className="side">
@@ -48,7 +48,11 @@ function Shell() {
           {connected ? "Live" : "Checking every 5 s"}
         </div>
       </aside>
-      <main className="main">{active.render()}</main>
+      <main className="main">
+        {tab === "security" && <SecurityView key={openSession?.n ?? 0} initialSessionId={openSession?.id ?? null} />}
+        {tab === "management" && <ManagementView />}
+        {tab === "chat" && <ChatView onOpenSession={(id) => { setOpenSession({ id, n: (openSession?.n ?? 0) + 1 }); setTab("security"); }} />}
+      </main>
     </div>
   );
 }
