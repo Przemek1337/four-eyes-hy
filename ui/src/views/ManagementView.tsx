@@ -1,5 +1,6 @@
 import { api } from "../api/client";
 import { Async } from "../components/Async";
+import { BudgetsPanel } from "../components/BudgetsPanel";
 import { ControlsPanel } from "../components/ControlsPanel";
 import { DataProtectionPanel } from "../components/DataProtectionPanel";
 import { KnownAttacks } from "../components/KnownAttacks";
@@ -7,6 +8,8 @@ import { KpiRow } from "../components/KpiRow";
 import { OwaspPanel } from "../components/OwaspPanel";
 import { PolicyGlance } from "../components/PolicyGlance";
 import { PolicyPanel } from "../components/PolicyPanel";
+import { SpeedPanel } from "../components/SpeedPanel";
+import { TestsPanel } from "../components/TestsPanel";
 import { DeductionLine, PosturePanel } from "../components/PosturePanel";
 import { ThreatsPanel } from "../components/ThreatsPanel";
 import { usePolling } from "../hooks/usePolling";
@@ -19,6 +22,8 @@ export function ManagementView() {
   const controls = usePolling(api.controls, []);
   const policy = usePolling(api.policy, []);
   const signatures = usePolling(api.signatures, []);
+  const budgets = usePolling(api.budgets, []);
+  const tests = usePolling(api.tests, []);
   const top = {
     data: metrics.data && posture.data ? { m: metrics.data, p: posture.data } : null,
     error: metrics.error ?? posture.error,
@@ -85,6 +90,9 @@ export function ManagementView() {
         )}</Async>
         <Async state={signatures}>{(sg) => <KnownAttacks signatures={sg} />}</Async>
       </section>
+      <Async state={budgets}>{(b) => <BudgetsPanel budgets={b} cost={metrics.data?.cost ?? { local_usd: 0, external_usd: 0, compute_s: 0 }} />}</Async>
+      <Async state={metrics}>{(m) => <SpeedPanel latency={m.latency} series={series.data} throughput={m.throughput_per_min} />}</Async>
+      <Async state={tests}>{(t) => <TestsPanel tests={t} />}</Async>
       <Async state={owasp}>{(o) => <OwaspPanel owasp={o} />}</Async>
     </section>
   );

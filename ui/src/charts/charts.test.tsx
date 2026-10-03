@@ -63,6 +63,15 @@ describe("LineChart", () => {
     expect(screen.getByRole("img")).toBeInTheDocument();
   });
 
+  it("formats values with a custom formatter in ticks, label, tooltip and table", async () => {
+    const ms = (v: number) => `${v.toFixed(1)} ms`;
+    const { container } = render(<LineChart title="Gateway p95" seriesLabel="p95" points={[{ t: 1, v: 14.25 }, { t: 2, v: 18.5 }]} format={ms} />);
+    expect(container.querySelector(".end-label")).toHaveTextContent("18.5 ms");
+    expect([...container.querySelectorAll(".tick")].map((t) => t.textContent)).toContain("0.0 ms");
+    await userEvent.click(screen.getByRole("button", { name: "View as table" }));
+    expect(screen.getByRole("table")).toHaveTextContent("14.3 ms");
+  });
+
   it("handles no data, one point and all zeros without breaking", () => {
     const { rerender } = render(<LineChart title="T" seriesLabel="Blocked" points={[]} />);
     expect(screen.getByText("No data in this window yet.")).toBeInTheDocument();
@@ -100,6 +109,19 @@ describe("BarList", () => {
     const { container } = render(<BarList title="t" valueLabel="x" items={[{ key: "h", label: "<img src=x onerror=alert(1)>", value: 1 }]} />);
     expect(container.querySelector("img")).toBeNull();
     expect(screen.getByText("<img src=x onerror=alert(1)>")).toBeInTheDocument();
+  });
+});
+
+describe("BarList options", () => {
+  const items = [{ key: "small", label: "Gateway", value: 18 }, { key: "big", label: "Model", value: 1200 }];
+  it("keeps the given order and accents only the chosen bar when told to", () => {
+    const { container } = render(<BarList title="t" valueLabel="" items={items} sorted={false} highlight={["small"]} format={(v) => `${v} ms`} />);
+    const rows = screen.getAllByRole("listitem");
+    expect(rows[0]).toHaveTextContent("Gateway");
+    expect(rows[0]).toHaveTextContent("18 ms");
+    expect(rows[0].querySelector(".lead")).not.toBeNull();
+    expect(container.querySelectorAll(".lead")).toHaveLength(1);
+    expect((rows[0].querySelector("i") as HTMLElement).style.width).toBe("2%"); // a tiny bar stays visible
   });
 });
 

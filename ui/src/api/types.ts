@@ -175,8 +175,9 @@ export interface BudgetsT {
   agents: (BudgetRow & {
     agent: string; team: string | null; usd_used: number; usd_limit: number | null;
     compute_used: number; compute_limit: number | null; tokens_used?: number;
+    usd_per_hour?: number; projected_exhaust_at?: number | null;
   })[];
-  teams: (BudgetRow & { team: string; usd_used: number; usd_limit: number | null })[];
+  teams: (BudgetRow & { team: string; usd_used: number; usd_limit: number | null; usd_per_hour?: number; projected_exhaust_at?: number | null })[];
   blocked_by_budget: number;
   fallbacks: number;
   session_limits?: { max_tokens: number; max_steps: number; busiest: { tokens: number; steps: number }; stopped_by_limit: number };

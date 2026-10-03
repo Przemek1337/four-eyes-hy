@@ -1,4 +1,4 @@
-import type { ApprovalT, AuditEvent, ControlRow, FlowT, Metrics, OwaspT, PolicyT, PostureT, SessionRow, SignaturesT, TimeseriesT } from "../api/types";
+import type { ApprovalT, AuditEvent, BudgetsT, ControlRow, FlowT, Metrics, OwaspT, PolicyT, PostureT, SessionRow, SignaturesT, TestsT, TimeseriesT } from "../api/types";
 
 export const session = (over: Partial<SessionRow> = {}): SessionRow => ({
   session_id: "a41f", agent: "kyc-agent", client: "Nowak Logistics", started: 1_760_000_000, steps: 5, labels: ["untrusted", "high_risk"],
@@ -122,4 +122,23 @@ export const signatures = (): SignaturesT => ({
   ],
 });
 
-export const fx = { session, approval, decision, flow, metrics, posture, owasp, timeseries, controls, policy, signatures };
+export const budgets = (): BudgetsT => ({
+  agents: [
+    { agent: "kyc-agent", team: "compliance", usd_used: 1.12, usd_limit: 2, compute_used: 210, compute_limit: 600, pct: 56, level: "ok", tokens_used: 8420, usd_per_hour: 0.31, projected_exhaust_at: 1_760_050_000 },
+    { agent: "playground-agent", team: "compliance", usd_used: 0.86, usd_limit: 1, compute_used: 12, compute_limit: null, pct: 86, level: "warn", tokens_used: 6130, usd_per_hour: 0.2, projected_exhaust_at: null },
+    { agent: "treasury-agent", team: "treasury", usd_used: 5, usd_limit: 5, compute_used: 0, compute_limit: null, pct: 100, level: "over" },
+    { agent: "sandbox-agent", team: null, usd_used: 0, usd_limit: null, compute_used: 3, compute_limit: null, pct: null, level: "ok" },
+  ],
+  teams: [{ team: "compliance", usd_used: 14.2, usd_limit: 50, pct: 28.4, level: "ok", usd_per_hour: 0.5, projected_exhaust_at: null }],
+  blocked_by_budget: 4,
+  fallbacks: 2,
+  session_limits: { max_tokens: 20000, max_steps: 20, busiest: { tokens: 6800, steps: 7 }, stopped_by_limit: 1 },
+});
+
+export const tests = (over: Partial<TestsT> = {}): TestsT => ({
+  passed: 142, failed: 0, positive: { passed: 71, failed: 0 }, negative: { passed: 71, failed: 0 },
+  by_owasp: { "LLM01:2026": { passed: 6, failed: 0 }, "LLM04:2026": { passed: 2, failed: 1 } },
+  false_blocks: 0, missed_attacks: 0, ran_at: 1_760_000_000, policy_version: "v3", ...over,
+});
+
+export const fx = { session, approval, decision, flow, metrics, posture, owasp, timeseries, controls, policy, signatures, budgets, tests };
