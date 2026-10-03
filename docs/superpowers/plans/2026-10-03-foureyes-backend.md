@@ -5757,12 +5757,18 @@ git commit -m "feat: engine, gateway API (chat completions, MCP proxy, audit exp
     - `GET /metrics`: `throughput_per_min`, `latency.upstream_p95_ms` (model time, reported apart from gateway overhead).
     - `GET /admin/sessions` rows: `client` (string or null). `GET /admin/sessions/{id}`: `flow` = `{sources:[{name, detail, label}], agent:{name, model, labels[], labels_since_step}, destinations:[{name, detail, outcome("passed"|"blocked"|"held"|"unavailable")}]}` derived from the session's audit events; each event also carries `latency_ms` and `route` (or null).
     - Why-this-decision data on decision events: `layer("det"|"ai")`, `rule`, `code`, `owasp[]`, `signature_id` (or null), `reference` (or null), `injection_score` (or null), `judge{score, reason}` (or null), `evidence` (fragment).
-    - Approval dict: `rule`, `labels[]`, `agent_reason` (or null), `params_hash`, `expires_at`.
+    - Approval dict: no change needed. `Approval.to_dict()` already carries `rule`, `labels`, `supplied_reason` (the agent's own reason), `hash` (the bound parameters hash) and `expires_at`; the UI reads those names.
     - `GET /admin/controls`: each control gains `setting` (short human string such as `block above 0.8` or `enforce`); `last_diff` stays.
     - `GET /admin/policy`: `summary` = `{block_or_redact:[{label, value}], models:[{label, value}], budgets:[{label, value}]}` built from the active snapshot.
     - `GET /admin/budgets`: agents gain `tokens_used`; new `session_limits` = `{max_tokens, max_steps, busiest:{tokens, steps}, stopped_by_limit}`.
     - `GET /admin/signatures` (new): `{feed:{...same as policy.feed}, hits:[{type, matches, reference, signature_id (or null), blocked}]}`.
     - `GET /audit/export` and the export dialog: new filter `events=decisions,policy,usage` (comma list), alongside `format`, `from`, `to`, `agent`, `session`, `decision`, `rule`, `owasp`.
+  - **Contract additions for the Management charts (2026-10-04)** — all new fields; existing ones stay:
+    - `GET /metrics` gains: `top_blockers` = `[{rule, owasp[], blocked}]` (rules that blocked the most requests in the window, at most 10, sorted by `blocked` descending); `routing` = `[{data_class, local, external}]` (requests per data class answered by a local vs an external model; the invariant says `external` is 0 for `personal_data` and `bank_secret`); `redacted_fields` (fields removed in flight, all-time or window as `requests`); `approval_median_s` (median seconds from request to decision, `null` if none decided); `approvals_expired` (count).
+    - `GET /admin/timeseries?window=24h` (new) → `{bucket_s, points:[{ts, requests, blocked, approval, redact, gateway_p95_ms}]}`, oldest first, one point per bucket (`bucket_s` 3600 for `24h`), `ts` epoch seconds, empty buckets present with zeros, `gateway_p95_ms` null for an empty bucket. Feeds the Blocked-per-hour chart now and the throughput and gateway-p95 charts later.
+    - `GET /admin/posture` gains `controls_active` and `controls_total` (counting only controls in the code's weight table).
+    - `GET /admin/budgets`: each agent row gains `usd_per_hour` (spend rate over the last hour) and `projected_exhaust_at` (epoch seconds when `usd_limit` would be reached at that rate, `null` when no limit or no spend); teams get the same two fields.
+    - `GET /admin/tests` already returns `false_blocks` and `missed_attacks`; the UI shows them as the quality of the guardrails, so they must be real counts from the report, not zeros by default (`ran_at: null` means no report).
   - Static UI: `/ui/` serves `src/foureyes/ui_dist/` when it exists; `/` redirects there.
 
 - [ ] **Step 1: Write failing tests `tests/test_posture_owasp.py`**
