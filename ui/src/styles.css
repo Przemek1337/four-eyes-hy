@@ -99,3 +99,16 @@ th { color: var(--faint); font-weight: 400; font-size: 13px; border-top: 0; }
   .main { padding: 32px 20px 56px; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+
+/* meter: white fill, lime from the soft limit, striped lime when over */
+.meter { height: 8px; background: var(--surface); border-radius: 999px; overflow: hidden; }
+.meter-fill { height: 100%; border-radius: 999px; background: var(--text); }
+.meter-ok { background: var(--text); }
+.meter-warn { background: var(--hold); }
+.meter-over { background: repeating-linear-gradient(135deg, var(--hold) 0 6px, #8fae45 6px 12px); }
+
+/* session status marks */
+.st { display: inline-flex; align-items: center; gap: 10px; }
+.st i { width: 12px; height: 12px; border-radius: 50%; border: 2px solid var(--muted); flex: none; }
+.st.untrusted i { border-style: dashed; }
+.st.risk i { background: var(--text); border-color: var(--text); }
