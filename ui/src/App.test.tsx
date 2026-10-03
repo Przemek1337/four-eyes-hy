@@ -2,6 +2,16 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
 
+class NoopEventSource {
+  onopen = null;
+  onerror = null;
+  onmessage = null;
+  close() {}
+}
+
+beforeEach(() => vi.stubGlobal("EventSource", NoopEventSource));
+afterEach(() => vi.unstubAllGlobals());
+
 describe("App shell", () => {
   it("shows the three views as sidebar tabs and starts on Security", () => {
     render(<App />);
@@ -22,5 +32,10 @@ describe("App shell", () => {
   it("names the product for assistive technology", () => {
     render(<App />);
     expect(screen.getByRole("img", { name: "FourEyes" })).toBeInTheDocument();
+  });
+
+  it("tells the user when the live stream is not connected", () => {
+    render(<App />);
+    expect(screen.getByRole("status")).toHaveTextContent("Checking every 5 s");
   });
 });
