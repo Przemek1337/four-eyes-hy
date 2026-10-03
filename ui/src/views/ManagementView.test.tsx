@@ -4,7 +4,7 @@ import { fx } from "../test/fixtures";
 import { ManagementView } from "./ManagementView";
 
 vi.mock("../api/client", () => ({
-  api: { metrics: vi.fn(), posture: vi.fn(), owasp: vi.fn(), timeseries: vi.fn() },
+  api: { metrics: vi.fn(), posture: vi.fn(), owasp: vi.fn(), timeseries: vi.fn(), controls: vi.fn(), policy: vi.fn(), signatures: vi.fn() },
 }));
 
 beforeEach(() => {
@@ -12,6 +12,9 @@ beforeEach(() => {
   vi.mocked(api.posture).mockResolvedValue(fx.posture({ score: 100, breakdown: [] }));
   vi.mocked(api.owasp).mockResolvedValue(fx.owasp());
   vi.mocked(api.timeseries).mockResolvedValue(fx.timeseries());
+  vi.mocked(api.controls).mockResolvedValue({ controls: fx.controls().map((c) => ({ ...c, status: "active" as const })), last_diff: [] });
+  vi.mocked(api.policy).mockResolvedValue(fx.policy());
+  vi.mocked(api.signatures).mockResolvedValue(fx.signatures());
 });
 
 describe("ManagementView", () => {
@@ -25,6 +28,22 @@ describe("ManagementView", () => {
     expect(await screen.findByRole("img", { name: /Blocked: 54 in total/ })).toBeInTheDocument();
     expect(screen.getByText(/Policy v4\./)).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows policy health: controls, what the policy is set to, known attacks and history", async () => {
+    render(<ManagementView />);
+    expect(await screen.findByRole("region", { name: "Controls" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Policy at a glance" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Known attacks blocked" })).toBeInTheDocument();
+    expect(await screen.findByRole("region", { name: "Policy and feed" })).toBeInTheDocument();
+  });
+
+  it("warns from the controls table even when the posture endpoint is silent about it", async () => {
+    vi.mocked(api.controls).mockResolvedValue({ controls: fx.controls(), last_diff: ["- controls.dlp.redact_inflight"] });
+    render(<ManagementView />);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("dlp.redact_inflight was removed from the policy");
+    expect(alert).not.toHaveTextContent("Posture dropped"); // posture reports no deduction in this case
   });
 
   it("warns when a control was removed from the policy", async () => {
