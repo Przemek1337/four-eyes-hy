@@ -54,11 +54,24 @@ describe("Timeline", () => {
     expect(buttons).toHaveLength(3);
     expect(buttons[1]).toHaveAttribute("aria-expanded", "true");
     expect(buttons[0]).toHaveAttribute("aria-expanded", "false");
-    expect(buttons[1].closest("li")).toHaveClass("stop", "dirty", "first", "open");
-    expect(buttons[2].closest("li")).toHaveClass("hold", "last");
-    expect(buttons[0].closest("li")).not.toHaveClass("dirty");
+    expect(buttons[1].closest("li")).toHaveClass("stop", "open");
+    expect(buttons[2].closest("li")).toHaveClass("hold");
     expect(screen.getByText("high_risk")).toBeInTheDocument();
-    expect(screen.getAllByText("Session is untrusted from here")).toHaveLength(1); // once, at the start of the band
+  });
+  it("puts every step from the first untrusted one, and the notes between them, in one zone", () => {
+    const { container } = render(<Timeline items={items} expanded={new Set()} onToggle={() => {}} />);
+    expect(screen.getAllByText("Session is untrusted from here")).toHaveLength(1);
+    const zone = container.querySelector(".tl-zone") as HTMLElement;
+    expect(within(zone).getByRole("button", { name: /entities_submit/ })).toBeInTheDocument();
+    expect(within(zone).getByRole("button", { name: /send_email/ })).toBeInTheDocument();
+    expect(zone.textContent).not.toContain("Model call"); // the clean first step stays outside
+    const firstButton = screen.getAllByRole("button")[0];
+    expect(zone.contains(firstButton)).toBe(false);
+  });
+  it("has no zone when nothing is untrusted", () => {
+    const { container } = render(<Timeline items={buildTimeline([fx.decision({ decision_id: "ok" })])} expanded={new Set()} onToggle={() => {}} />);
+    expect(container.querySelector(".tl-zone")).toBeNull();
+    expect(screen.queryByText("Session is untrusted from here")).not.toBeInTheDocument();
   });
   it("labels the toggle by state and reports which step was toggled", async () => {
     const onToggle = vi.fn();

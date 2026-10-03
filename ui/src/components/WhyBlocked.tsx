@@ -22,7 +22,7 @@ export function WhyBlocked({ event, approval }: { event: AuditEvent | null; appr
           {event.policy_version ? <span className="muted"> · policy {event.policy_version}</span> : null}
         </dd>
         <dt>Layer</dt><dd>{event.layer === "ai" ? "AI (semantic)" : "Deterministic"}</dd>
-        <dt>Reason</dt><dd>{event.reason || "–"}</dd>
+        {event.reason && <><dt>Reason</dt><dd>{event.reason}</dd></>}
         {(event.owasp ?? []).length > 0 && (
           <><dt>OWASP</dt><dd className="row">{event.owasp!.map((t) => <Badge key={t}>{t}</Badge>)}</dd></>
         )}
