@@ -5753,6 +5753,16 @@ git commit -m "feat: engine, gateway API (chat completions, MCP proxy, audit exp
   - `GET /admin/tests` → `{passed, failed, positive{passed,failed}, negative{passed,failed}, by_owasp{id:{passed,failed}}, false_blocks, missed_attacks, ran_at, policy_version}` (zeros and `ran_at: null` when no report exists)
   - `POST /admin/chat` body `{mode:"prompt"|"document", text, session_id?, model?}` → `{session_id, decision, rule, layer, code, owasp[], data_class, route{type,model,router,rerouted_from}|null, latency_ms, injection_score|null, reply|null, approval_id|null, message, steps[]}`; 501 for document mode without a harness runner
   - `GET /admin/stream` (Server-Sent Events): each audit event as `data: {json}`, comment pings every 15 s
+  - **Contract additions (UI design, 2026-10-04)** — add these fields; existing ones stay:
+    - `GET /metrics`: `throughput_per_min`, `latency.upstream_p95_ms` (model time, reported apart from gateway overhead).
+    - `GET /admin/sessions` rows: `client` (string or null). `GET /admin/sessions/{id}`: `flow` = `{sources:[{name, detail, label}], agent:{name, model, labels[], labels_since_step}, destinations:[{name, detail, outcome("passed"|"blocked"|"held"|"unavailable")}]}` derived from the session's audit events; each event also carries `latency_ms` and `route` (or null).
+    - Why-this-decision data on decision events: `layer("det"|"ai")`, `rule`, `code`, `owasp[]`, `signature_id` (or null), `reference` (or null), `injection_score` (or null), `judge{score, reason}` (or null), `evidence` (fragment).
+    - Approval dict: `rule`, `labels[]`, `agent_reason` (or null), `params_hash`, `expires_at`.
+    - `GET /admin/controls`: each control gains `setting` (short human string such as `block above 0.8` or `enforce`); `last_diff` stays.
+    - `GET /admin/policy`: `summary` = `{block_or_redact:[{label, value}], models:[{label, value}], budgets:[{label, value}]}` built from the active snapshot.
+    - `GET /admin/budgets`: agents gain `tokens_used`; new `session_limits` = `{max_tokens, max_steps, busiest:{tokens, steps}, stopped_by_limit}`.
+    - `GET /admin/signatures` (new): `{feed:{...same as policy.feed}, hits:[{type, matches, reference, signature_id (or null), blocked}]}`.
+    - `GET /audit/export` and the export dialog: new filter `events=decisions,policy,usage` (comma list), alongside `format`, `from`, `to`, `agent`, `session`, `decision`, `rule`, `owasp`.
   - Static UI: `/ui/` serves `src/foureyes/ui_dist/` when it exists; `/` redirects there.
 
 - [ ] **Step 1: Write failing tests `tests/test_posture_owasp.py`**

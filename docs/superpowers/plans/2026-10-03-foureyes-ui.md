@@ -10,18 +10,28 @@
 
 **Spec:** `docs/superpowers/specs/2026-10-03-foureyes-gateway-design.md` §9 (dashboard) and the JSON contract in `docs/superpowers/plans/2026-10-03-foureyes-backend.md`, Task 14. The backend plan must be implemented first (or the API mocked) to run the app end to end; every unit test here mocks `fetch`/the API client.
 
+## Design override (2026-10-04)
+
+The approved visual design is in `docs/superpowers/specs/2026-10-04-foureyes-ui-design.md`, with a clickable reference at `docs/design/key-visual/index.html`. **Where it conflicts with this plan, the design spec wins.** Specifically:
+
+- Colour semantics are replaced. There is no blue, orange, red, green or yellow. One lime accent plus black, white and grey; state is carried by fill, outline, symbol and line style (design spec §3). Read "blue / orange / red", "green at 0, red above 0" and "green / yellow / red" in this plan as the rules in §3.
+- Dark theme only; the light theme and `prefers-color-scheme` handling are dropped.
+- Fonts are Inter and JetBrains Mono, bundled with `@fontsource/*` (no CDN).
+- Tone names in `Badge`, `Meter` and the fixtures stay as props, but each tone maps to the §3 rendering, not to a hue.
+- Extra tasks and changes: U5b (data-flow map), U7 becomes the export dialog, U11 gains Document mode, U9/U10 gain policy at a glance, known attacks and per-session budget, U13 states (see §6 of the spec).
+
 ## Global Constraints
 
 - All UI text is **English**.
 - Decisions are exactly `ALLOW`, `REDACT`, `APPROVAL`, `BLOCK`; data classes are `public`, `personal_data`, `bank_secret`; labels are `untrusted`, `high_risk`.
-- Timeline colours: **blue** = clean, **orange** = after untrusted content, **red** = blocked or held for approval.
+- Timeline state: see "Design override" and the design spec §3 (no hues; untrusted = dashed line and tinted band, blocked = lime filled with ✕, waiting for approval = lime outline).
 - OWASP categories are always shown with the edition year (`LLM01:2026`, `ASI01`).
 - Export banner text, verbatim: `Export contains redacted content only`.
 - The Management view must show the invariant counter `private → external` (green at 0, red above 0).
 - Currency USD; compute in seconds; latency in ms.
-- Dark theme by default with a light theme through `prefers-color-scheme`; colours come from CSS variables only; layout works down to 360 px width with no horizontal page scroll.
+- Dark theme only; colours come from CSS variables only; layout works down to 360 px width with no horizontal page scroll.
 - Event/approval text is rendered as text (React escaping only); never `dangerouslySetInnerHTML`.
-- Stage-3 items are out of scope: honeypot panel, session replay, follow mode, data-flow map, attack mode. The test suite has no "re-run" button (the backend has no endpoint for it); the panel shows the `make test` hint instead.
+- Stage-3 items are out of scope: honeypot panel, session replay, follow mode, attack mode (the lightweight data-flow map is now in scope as U5b). The test suite has no "re-run" button (the backend has no endpoint for it); the panel shows the `make test` hint instead.
 - Build output goes to `src/foureyes/ui_dist` with Vite `base: "/ui/"`; the gateway serves it at `/ui/`.
 
 ## Review Focus
