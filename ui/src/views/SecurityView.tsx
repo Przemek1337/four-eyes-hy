@@ -2,6 +2,7 @@ import { useState } from "react";
 import { api } from "../api/client";
 import type { SessionFilters } from "../api/types";
 import { ApprovalQueue } from "../components/ApprovalQueue";
+import { ExportDialog } from "../components/ExportDialog";
 import { SessionDetail } from "../components/SessionDetail";
 import { SessionList } from "../components/SessionList";
 import { usePolling } from "../hooks/usePolling";
@@ -9,6 +10,7 @@ import { usePolling } from "../hooks/usePolling";
 export function SecurityView() {
   const [filters, setFilters] = useState<SessionFilters>({});
   const [selected, setSelected] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
   const sessions = usePolling(() => api.sessions(filters), [JSON.stringify(filters)]);
   const approvals = usePolling(() => api.approvals("pending"), []);
 
@@ -29,7 +31,14 @@ export function SecurityView() {
       {sessions.error && sessions.data == null && (
         <p role="alert" className="state state-error">Could not load sessions: {sessions.error}</p>
       )}
-      <SessionList rows={sessions.data?.sessions ?? []} onSelect={setSelected} filters={filters} onFilters={setFilters} />
+      <SessionList
+        rows={sessions.data?.sessions ?? []}
+        onSelect={setSelected}
+        filters={filters}
+        onFilters={setFilters}
+        actions={<button className="btn-sm" onClick={() => setExporting(true)}>Export audit log</button>}
+      />
+      <ExportDialog open={exporting} onClose={() => setExporting(false)} />
     </section>
   );
 }
