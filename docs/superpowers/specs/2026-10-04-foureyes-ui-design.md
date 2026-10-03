@@ -59,11 +59,34 @@ Motion: timeline line draws once on load, live dot pings, waiting dots blink, po
 
 **Session detail** (`#session`): back link; plain-language title that says what the agent *tried* and that the system stopped it; meta line (agent, user, team, id, start, steps); label chips; **Where the data went** (sources → agent → destinations, with the external model shown unavailable for private data); timeline of steps with latency and route; the blocked step is a lime-tinted card containing "Why this was stopped" (rule, layer, OWASP with edition year, document score, judge, signature or "none", evidence quote); right column: approval card with parameters, rule, labels, agent's reason, bound hash, the two signature slots (Agent struck through, Compliance waiting), Deny and Approve, expiry.
 
-**Management** (`#management`): posture ring plus eight figures (requests, allowed, redacted, approval, blocked, approvals open, private → external, spend today) and the deduction line; OWASP 10 tiles with year and per-category counts and the 10/10 tested line; budgets (per agent, team, session; USD, compute seconds, tokens); speed and tests (throughput, p50/p95, rule vs AI check time, model time reported apart from overhead, suite result and `make test`); controls table (id, one-line purpose, Rule/AI, setting, status, hits per hour, p95), diff of last change; policy at a glance (thresholds Block vs Redact, allowed models, budget rules); known attacks blocked (signature types, matches, reference, count); policy history; signature feed status. The "Demo: remove a control" button exists only in the key visual to show the live-change scene; the real UI changes when the policy file changes.
+**Management** (`#management`): organised by the questions a CISO or head of compliance asks, in this order. Each block says what it answers and what to do with it.
+
+1. *Overview.* Posture ring with its definition ("share of the policy's protection that is switched on; not a risk score"), `N of M controls active`, and every deduction named with its amount. Five figures, no cards: requests (with the allowed / redacted / approval split), **blocked** and its share, approvals open with median decision time and expired count, **private → external** (0 is calm; above 0 a Breach pill and an alert bar), spent (external, local, compute seconds).
+2. *Threats stopped* (is the layer working?). Line chart **Blocked per hour** over 24 h and ranked bars **What stopped them** (rules, with the OWASP category).
+3. *Data protection* (is private data staying inside the bank?). **Where each data class went**: per class, requests answered by the local vs an external model; private classes show `0 to external` or a count; plus fields removed before leaving the gateway.
+4. *Policy health* (has anything been weakened?). Controls table (id, one-line purpose, Rule/AI, setting, status, hits per hour, p95) with the REMOVED row, alert bar and last diff; policy at a glance (thresholds Block vs Redact, allowed models, budget rules); known attacks blocked (signature type, matches, reference, count); policy history; signature feed status.
+5. *Cost* (what does it cost and who is near a limit?). Budgets per agent, team and session in USD, compute seconds and tokens, with **burn rate and the time the limit would be reached at the current pace**; local vs external split; requests blocked or rerouted by budget.
+6. *Speed* (does it slow developers down?). Throughput and gateway p95 as two separate line charts (never one chart with two axes); **gateway overhead vs model time** (the layer's cost next to the model's); rule vs AI check time.
+7. *Proof it works.* Test suite result (positive and negative passed, **missed attacks, false blocks**), `make test`, and OWASP LLM Top 10 coverage tiles (enforced / monitor only / uncovered, with the edition year). "N/10 categories have a passing test" is a note here, not a headline.
+
+The "Demo: remove a control" button exists only in the key visual; the real UI changes when the policy file changes.
+
+**What the numbers mean (shown in the UI, not only here).** Posture is configuration health: 100 minus the weight share of controls that are removed (full) or monitor-only (half), minus fixed penalties for a stale or failing signature feed, an unavailable AI check model and failing tests. It does not measure risk. OWASP coverage is derived from the tags of the controls that are active right now; it says "something enforces this category", and the test results are the evidence that it works.
 
 **Chat** (`#chat`): Prompt and Document modes; thread of message and gateway verdict (decision, rule, checked by, OWASP, score, data class, time); Document mode shows the session's steps and links to the session in Security; composer with example chips.
 
 **States** (`#states`, a design reference): gateway not responding, empty list, loading skeleton, late data and the three connection states, invariant breach, hostile or very long text. Every panel implements these via the shared `Async` wrapper.
+
+## 4b. Charts
+
+Charts exist only where the data's job needs one: a trend over time (line, one series), a ranking of nominal items (bars), a split of a whole in two parts (stacked bars). Everything else is a figure or a table. Rules, from the data-viz method we follow:
+
+- One accent plus greys. A single series is lime; in a ranking only the leader is lime and the rest grey (emphasis, not categories). Two series use white and grey, never lime next to white (they are too close under colour-blindness: tritan ΔE 6.9). Checked with the palette validator: lime↔grey ΔE ≈ 35, white↔grey ΔE ≈ 38, contrast ≥ 3:1 on `--ink`.
+- Never two y-axes. Two measures of different scale are two charts.
+- Thin marks: 2 px lines, bars no thicker than 24 px with a 4 px rounded data end, 2 px gap between touching fills, a surface ring on dots, a 10% wash under a line, hairline solid grid. No border around marks.
+- A legend whenever there are two series; none for one. Direct label only the latest or the extreme value, never every point. Text uses text tokens, never the series colour.
+- Every chart has a **table view** with the same numbers, a crosshair and tooltip on hover **and** on keyboard focus (arrow keys), and a text description for screen readers. Untrusted names (rules, classes) are rendered as text.
+- Axis ends are rounded to clean numbers; an empty window shows a sentence, not an empty plot.
 
 ## 5. Task requirement coverage
 
@@ -71,7 +94,7 @@ Each row is something the task asks the dashboard or reporting to deliver, and w
 
 | Task requirement | Where |
 |---|---|
-| Dashboard shows controls, overall security posture, blocked threats, resource use and cost | Management: controls table, posture ring, Blocked figure, budgets |
+| Dashboard shows controls, overall security posture, blocked threats, resource use and cost | Management: controls table, posture ring, blocked figure and chart, budgets |
 | Reporting for security teams and for management | Security views; Management view |
 | Central policy: thresholds (block vs redact), allowed models, budgets | Management: policy at a glance; setting column in controls |
 | Rule-based and AI-based controls | Type column (Rule / AI) |
@@ -82,7 +105,7 @@ Each row is something the task asks the dashboard or reporting to deliver, and w
 | Test suite with positive and negative cases | Management: suite result, positive/negative, false blocks, missed attacks |
 | Judges send ad-hoc prompts | Chat: Prompt and Document |
 | Judges change config or feeds and see the effect live | Policy history and version, REMOVED scene, posture and OWASP update, diff |
-| Performance telemetry | Management: throughput, p50/p95, rule vs AI time, model time apart |
+| Performance telemetry | Management: throughput and gateway p95 over time, overhead vs model time, rule vs AI time |
 
 Not a UI deliverable (tracked elsewhere): architecture diagram, sample policy file, test suite itself, PDF.
 
@@ -92,7 +115,7 @@ Not a UI deliverable (tracked elsewhere): architecture diagram, sample policy fi
 2. New: **Where the data went** map in the session detail (new task U5b). It is a read-only view over the session's audit events.
 3. New: **Export dialog** with filters and format (replaces the simple export panel in U7).
 4. New: **Document mode** in Chat (U11).
-5. New: **Known attacks**, **Policy at a glance** and per-session budget on Management (U9, U10).
+5. New: **Threats stopped** and **Data protection** charts (U8), **Known attacks**, **Policy at a glance** (U9), budget burn rate, speed charts and **missed attacks / false blocks** (U10).
 6. New: **States** coverage (task U13).
 7. Still out of scope: honeypot panel, session replay, follow mode, attack mode, a "re-run tests" button.
 
