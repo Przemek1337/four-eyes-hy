@@ -64,7 +64,8 @@ class PolicyStore:
         if not initial:
             self._record_reload(self._snapshot, snap)
         else:
-            self.history.append({"version": snap.label, "ts": time.time(), "event": "policy.loaded", "diff": []})
+            self.history.append({"version": snap.label, "ts": time.time(), "event": "policy.loaded", "diff": [],
+                                 "warnings": list(snap.warnings)})
         return snap
 
     def _record_reload(self, old: PolicySnapshot, new: PolicySnapshot) -> None:

@@ -24,9 +24,15 @@ def run(ctx):
     return ActionJudgeControl(ctx.policy.control_cfg("sem.action_judge")).evaluate(ctx, "pre")
 
 
+def test_internal_email_is_not_judged():
+    client = MockDecisionClient(choice_rules=OUT)
+    assert run(tool_ctx(client, "send_email", {"to": "kyc@bank.internal"})) is None
+    assert client.calls == []
+
+
 @pytest.mark.positive
-def test_consistent_internal_email_is_allowed_with_the_ai_detail():
-    v = run(tool_ctx(MockDecisionClient(choice_rules=OUT), "send_email", {"to": "kyc@bank.internal"}))
+def test_consistent_critical_action_is_allowed_with_the_ai_detail():
+    v = run(tool_ctx(MockDecisionClient(choice_rules=OUT), "entities_submit", {"entity_id": "E1"}))
     assert v.outcome is Outcome.ALLOW and v.detail["ai"]["model"] == "basal" and v.detail["judge"]["consistent"]
 
 

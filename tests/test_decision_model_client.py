@@ -46,7 +46,7 @@ def test_assessment_to_dict_names_the_rule():
     a = AiAssessment("granite_guardian", "g-4.1", "fake_authority", 0.97, 0.97, 0.97, 2, 41.2, False)
     assert a.to_dict() == {"model": "granite_guardian", "model_version": "g-4.1", "rule": "fake_authority",
                            "probability": 0.97, "confidence": 0.97, "score": 0.97, "chunks": 2,
-                           "latency_ms": 41.2, "uncertain": False}
+                           "latency_ms": 41.2, "uncertain": False, "probability_source": "model"}
     assert YesNoDecision(0.5, 0.5, 1.0).probability_source == "model"
     assert ChoiceDecision("a", {"a": 1.0}, 1.0, 1.0).choice == "a"
 

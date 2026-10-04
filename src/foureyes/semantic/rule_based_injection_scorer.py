@@ -12,6 +12,7 @@ def assess_injection(client: DecisionModelClient, model_name: str, text: str, co
     log_above = float((conf.get("prompts") or {}).get("log_above", 0.5))
     chunks = split_text(text, client.max_input_tokens)
     best_p, best_rule, best_conf, latency, uncertain = 0.0, None, 1.0, 0.0, False
+    sources: set[str] = set()
     for rule, criterion in rules.items():
         if criterion == "builtin":
             criterion = client.builtin_criteria.get(rule)
@@ -20,9 +21,11 @@ def assess_injection(client: DecisionModelClient, model_name: str, text: str, co
         for chunk in chunks:
             d = client.yes_probability(chunk, criterion)
             latency += d.latency_ms
+            sources.add(d.probability_source)
             uncertain |= d.confidence < min_conf
             if best_rule is None or d.p_yes > best_p:
                 best_p, best_rule, best_conf = d.p_yes, rule, d.confidence
     score = max(best_p, log_above) if uncertain else best_p
+    source = "hard_label" if "hard_label" in sources else "logprobs" if "logprobs" in sources else "model"
     return AiAssessment(model_name, client.model_version, best_rule, best_p, best_conf, score, len(chunks), latency,
-                        uncertain)
+                        uncertain, source)

@@ -47,6 +47,25 @@ def test_the_rule_with_the_highest_probability_names_the_decision():
     assert a.uncertain is False
 
 
+def test_probability_source_reaches_the_assessment():
+    class Sourced(RuleAware):
+        def __init__(self, sources):
+            super().__init__("claims approvals", 0.97)
+            self.sources = iter(sources)
+
+        def yes_probability(self, state, criterion):
+            d = super().yes_probability(state, criterion)
+            return YesNoDecision(d.p_yes, d.confidence, d.latency_ms, next(self.sources, "logprobs"))
+
+    n = len(CONF["rules"])
+    assert assess_injection(RuleAware("x", 0.9), "granite_guardian", HIDDEN, CONF).probability_source == "model"
+    assert assess_injection(Sourced(["logprobs"] * n), "granite_guardian", HIDDEN, CONF
+                            ).probability_source == "logprobs"
+    mixed = assess_injection(Sourced(["logprobs", "hard_label"]), "granite_guardian", HIDDEN, CONF)
+    assert mixed.probability_source == "hard_label"
+    assert mixed.to_dict()["probability_source"] == "hard_label"
+
+
 @pytest.mark.negative
 @pytest.mark.owasp("LLM01:2026")
 def test_prompt_above_threshold_is_blocked_with_the_ai_detail():

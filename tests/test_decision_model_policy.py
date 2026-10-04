@@ -64,3 +64,21 @@ def test_reload_event_carries_the_warnings(tmp_path):
     reloaded = next(e for e in events if e["event"] == "policy.reloaded")
     assert reloaded["warnings"] and "jailbreak" in reloaded["warnings"][0]
     assert store.history[-1]["warnings"] == reloaded["warnings"]
+
+
+def test_initial_load_carries_the_warnings(tmp_path):
+    path = tmp_path / "policy.yaml"
+    path.write_text(yaml.safe_dump(policy_with({"controls": {"sem.prompt_injection": {"model": "basal"}}})))
+    store = PolicyStore(path, on_event=lambda e: None, base_dir=tmp_path)
+    loaded = store.history[0]
+    assert loaded["event"] == "policy.loaded" and "jailbreak" in loaded["warnings"][0]
+    clean = tmp_path / "clean.yaml"
+    clean.write_text(yaml.safe_dump(policy_with()))
+    assert PolicyStore(clean, on_event=lambda e: None, base_dir=tmp_path).history[0]["warnings"] == []
+
+
+def test_every_decision_model_error_is_reported():
+    with pytest.raises(PolicyError) as err:
+        snapshot({"controls": {"sem.prompt_injection": {"model": "gpt-judge"},
+                               "sem.action_judge": {"model": "jev"}}})
+    assert "gpt-judge" in str(err.value) and "external" in str(err.value) and "; " in str(err.value)

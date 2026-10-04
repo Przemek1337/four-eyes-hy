@@ -8,7 +8,8 @@ import httpx
 
 from .decision_model_client import ChoiceDecision, YesNoDecision
 
-# Strings from the model card of ibm-granite/granite-guardian-4.1-8b (verified in the Task 0 spike).
+# Strings from the model card of ibm-granite/granite-guardian-4.1-8b; not yet verified against a live server
+# (Task 0 spike pending).
 BLOCK_PREFIX = "<guardian>"
 NO_THINK_INSTRUCTION = (
     "<no-think>As a judge agent, assess whether the provided text meets the given judging criteria using all "
@@ -36,17 +37,30 @@ def _label(content: str) -> str:
     return label
 
 
-def _p_yes_from_logprobs(tokens: list[dict]) -> float | None:
-    for tok in tokens:
-        if tok.get("token", "").strip().lower() not in ("yes", "no"):
-            continue
-        alts = {a["token"].strip().lower(): math.exp(a["logprob"]) for a in tok.get("top_logprobs") or []}
-        alts.setdefault(tok["token"].strip().lower(), math.exp(tok["logprob"]))
-        yes, no = alts.get("yes"), alts.get("no")
-        if yes is not None and no is not None:
-            return yes / (yes + no)
-        return yes if yes is not None else 1 - no
-    return None
+def _p_yes_from_logprobs(tokens: list[dict], label: str) -> float | None:
+    """P(yes) from the yes/no token that follows the `<score>` tag. None (use the hard label) when that token is
+    missing or its label disagrees with the label parsed from the text."""
+    text, after_tag = "", None
+    for i, tok in enumerate(tokens):
+        text += tok.get("token", "")
+        if text.endswith("<score>"):
+            after_tag = i + 1  # the last `<score>` wins: the answer is the final thing the model writes
+    if after_tag is None:
+        return None
+    while after_tag < len(tokens) and not tokens[after_tag].get("token", "").strip():
+        after_tag += 1
+    if after_tag >= len(tokens):
+        return None
+    tok = tokens[after_tag]
+    chosen = tok.get("token", "").strip().lower()
+    if chosen not in ("yes", "no") or chosen != label:
+        return None
+    alts = {a["token"].strip().lower(): math.exp(a["logprob"]) for a in tok.get("top_logprobs") or []}
+    alts.setdefault(chosen, math.exp(tok["logprob"]))
+    yes, no = alts.get("yes"), alts.get("no")
+    if yes is not None and no is not None:
+        return yes / (yes + no)
+    return yes if yes is not None else 1 - no
 
 
 class GraniteGuardianDecisionClient:
@@ -78,7 +92,7 @@ class GraniteGuardianDecisionClient:
         choice = resp.json()["choices"][0]
         label = _label(choice["message"]["content"])
         latency = (time.perf_counter() - t0) * 1000
-        p = _p_yes_from_logprobs(((choice.get("logprobs") or {}).get("content")) or [])
+        p = _p_yes_from_logprobs(((choice.get("logprobs") or {}).get("content")) or [], label)
         if p is None:
             hard = 1.0 if label == "yes" else 0.0
             return YesNoDecision(hard, 1.0, latency, "hard_label")

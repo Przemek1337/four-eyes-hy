@@ -28,7 +28,7 @@ class CompaniesHouseRegistryLookup:
         return cls(extracts_dir, api_key=os.environ.get("CH_API_KEY") or None, client=client)
 
     def lookup(self, number: str) -> dict:
-        if not re.fullmatch(r"[A-Z0-9]{8}", number or ""):
+        if not re.fullmatch(r"[A-Z0-9]{8}", number or "", re.ASCII):
             raise ValueError("a Companies House number has 8 characters")
         if self.live:
             return self._live(number)
@@ -46,7 +46,10 @@ class CompaniesHouseRegistryLookup:
             raise RegistryRecordNotFound(number)
         if resp.status_code != 200:
             raise RegistryUnavailable(f"Companies House answered {resp.status_code}")
-        return resp.json()
+        try:
+            return resp.json()
+        except ValueError as exc:
+            raise RegistryUnavailable("unreadable answer") from exc
 
     def summarize(self, record: dict) -> dict:
         return {"legalName": record["company_name"], "legalStructure": record.get("type", "other"), "country": "GB",

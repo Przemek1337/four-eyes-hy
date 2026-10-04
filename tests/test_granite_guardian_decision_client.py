@@ -51,9 +51,28 @@ def test_probability_from_logprobs_of_the_score_token():
 
 
 def test_probability_when_only_the_chosen_token_is_listed():
-    tokens = [lp("no", math.log(0.7), [("no", math.log(0.7))])]
+    tokens = [lp("<score>", -0.01, []), lp("no", math.log(0.7), [("no", math.log(0.7))])]
     d = client_for(lambda req: answer("<score>no</score>", tokens)).yes_probability("x", "c")
     assert d.p_yes == pytest.approx(0.3)
+
+
+def test_a_stray_yes_token_before_the_score_tag_is_ignored():
+    tokens = [lp("yes", math.log(0.2), [("yes", math.log(0.2)), ("no", math.log(0.8))]),
+              lp("<score>", -0.01, []), lp("yes", math.log(0.9), [("yes", math.log(0.9)), ("no", math.log(0.1))])]
+    d = client_for(lambda req: answer("<think>\n</think>\n<score>yes</score>", tokens)).yes_probability("x", "c")
+    assert d.p_yes == pytest.approx(0.9) and d.probability_source == "logprobs"
+
+
+def test_score_token_that_disagrees_with_the_label_falls_back_to_the_hard_label():
+    tokens = [lp("<score>", -0.01, []), lp("no", math.log(0.9), [("no", math.log(0.9)), ("yes", math.log(0.1))])]
+    d = client_for(lambda req: answer("<score>yes</score>", tokens)).yes_probability("x", "c")
+    assert (d.p_yes, d.confidence, d.probability_source) == (1.0, 1.0, "hard_label")
+
+
+def test_missing_token_after_the_score_tag_falls_back_to_the_hard_label():
+    tokens = [lp("yes", math.log(0.9), [("yes", math.log(0.9))]), lp("<score>", -0.01, [])]
+    d = client_for(lambda req: answer("<score>yes</score>", tokens)).yes_probability("x", "c")
+    assert d.probability_source == "hard_label"
 
 
 def test_without_logprobs_the_label_is_hard():

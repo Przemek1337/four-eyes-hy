@@ -62,5 +62,5 @@ def validate(raw: object) -> Policy:
             raise PolicyError(f"agent {name}: default_model {dm!r} is not in models.allowlist")
     dm_errors = decision_model_errors(policy.decision_models, policy.controls, order)
     if dm_errors:
-        raise PolicyError(dm_errors[0])
+        raise PolicyError("; ".join(dm_errors))
     return policy

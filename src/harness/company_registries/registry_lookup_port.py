@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Protocol
 
 
@@ -25,11 +26,16 @@ def lookup_result(registry: RegistryLookup, number: str) -> dict:
     base = {"registry": registry.registry, "number": number}
     try:
         record = registry.lookup(number)
+    except json.JSONDecodeError:
+        return {**base, "status": "unavailable", "error": "unreadable record"}
     except ValueError as exc:
         return {**base, "status": "invalid_number", "error": str(exc)}
     except RegistryRecordNotFound:
         return {**base, "status": "not_found"}
     except RegistryUnavailable as exc:
         return {**base, "status": "unavailable", "error": str(exc)}
-    return {**base, "status": "found", "source": "live" if registry.live else "file",
-            "company": registry.summarize(record)}
+    try:
+        company = registry.summarize(record)
+    except (KeyError, TypeError) as exc:
+        return {**base, "status": "unavailable", "error": f"unexpected record shape: {exc!r}"}
+    return {**base, "status": "found", "source": "live" if registry.live else "file", "company": company}
