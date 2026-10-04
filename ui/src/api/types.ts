@@ -234,6 +234,18 @@ export interface TestsT {
   corpus?: CorpusT;
 }
 
+export interface AttackStatusT {
+  /** unavailable: no demo harness behind the gateway */
+  state: "idle" | "running" | "done" | "failed" | "unavailable";
+  sent: number;
+  current: { owasp: string; label: string; actual: string } | null;
+  summary: {
+    sent: number; attacks: number; attacks_stopped: number; legit: number; legit_passed: number;
+    uncounted: number; unexpected: string[]; notes: string[];
+  } | null;
+  error: string | null;
+}
+
 export interface ChatResult {
   ai?: Record<string, AiInfo> | null;
   session_id: string;

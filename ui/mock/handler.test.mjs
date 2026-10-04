@@ -100,6 +100,19 @@ describe("the approval", () => {
   });
 });
 
+describe("the staged test attack", () => {
+  it("starts idle, a press starts a run, a second press is refused", () => {
+    const m = fresh();
+    expect(body(get(m, "/admin/demo/attack")).state).toBe("idle");
+    const started = m.handle("POST", "/admin/demo/attack", {});
+    expect(started.status).toBe(202);
+    expect(body(get(m, "/admin/demo/attack")).state).toBe("running");
+    expect(m.handle("POST", "/admin/demo/attack", {}).status).toBe(409);
+    get(m, "/__mock/reset");
+    expect(body(get(m, "/admin/demo/attack")).state).toBe("idle");
+  });
+});
+
 describe("switches", () => {
   it("removing a control changes the posture, the table, the OWASP tile, the policy and the diff together", () => {
     const m = fresh();
@@ -134,7 +147,7 @@ describe("switches", () => {
     m.handle("POST", "/admin/approvals/ap1/decide", { approve: true });
     get(m, "/__mock/toggle-removed");
     get(m, "/__mock/reset");
-    expect(m.getState()).toEqual({ removed: false, slow: false, fail: false, decision: null, chats: 0 });
+    expect(m.getState()).toEqual({ removed: false, slow: false, fail: false, decision: null, chats: 0, attackAt: null });
     expect(body(get(m, "/admin/approvals")).approvals).toHaveLength(1);
   });
 

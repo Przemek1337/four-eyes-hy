@@ -78,6 +78,8 @@ def build(policy: Path, harness: str | None, port: int):
         from harness.kyc.runner import make_document_runner
         client = httpx.Client(base_url=f"http://127.0.0.1:{port}", timeout=120.0)
         services.document_runner = make_document_runner(client, tools, os.environ.get("KYC_AGENT_KEY", ""))
+        from harness.kyc.attack_demo import AttackDemo
+        services.attack_demo = AttackDemo(client, os.environ.get("KYC_AGENT_KEY", ""))
     return app
 
 
