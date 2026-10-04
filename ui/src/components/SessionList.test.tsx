@@ -45,7 +45,7 @@ describe("SessionList", () => {
   it("marks the active quick filter and shows an empty state", () => {
     render(<SessionList rows={[]} onSelect={() => {}} filters={{ decision: "BLOCK" }} onFilters={() => {}} />);
     expect(screen.getByRole("button", { name: "Blocked" })).toHaveAttribute("aria-pressed", "true");
-    expect(screen.getByText("No sessions match.")).toBeInTheDocument();
+    expect(screen.getByText("No sessions match these filters")).toBeInTheDocument();
   });
 });
 

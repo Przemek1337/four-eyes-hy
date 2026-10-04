@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Logo } from "./components/Logo";
+import { ConnectionBanner } from "./components/ConnectionBanner";
 import { LiveProvider, useLive } from "./live";
 import { ChatView } from "./views/ChatView";
 import { ManagementView } from "./views/ManagementView";
@@ -22,7 +23,7 @@ type TabId = (typeof TABS)[number]["id"];
 function Shell() {
   const [tab, setTab] = useState<TabId>("security");
   const [openSession, setOpenSession] = useState<{ id: string; n: number } | null>(null);
-  const { connected } = useLive();
+  const { connected, offline } = useLive();
   return (
     <div className="app">
       <aside className="side">
@@ -44,12 +45,13 @@ function Shell() {
           ))}
         </nav>
         <div className="side-foot" role="status">
-          <span className={connected ? "live" : "ring"} aria-hidden="true" />
-          {connected ? "Live" : "Checking every 5 s"}
+          <span className={offline ? "off" : connected ? "live" : "ring"} aria-hidden="true" />
+          {offline ? "Offline" : connected ? "Live" : "Checking every 5 s"}
         </div>
       </aside>
       <main className="main">
-        {tab === "security" && <SecurityView key={openSession?.n ?? 0} initialSessionId={openSession?.id ?? null} />}
+        <ConnectionBanner />
+        {tab === "security" && <SecurityView key={openSession?.n ?? 0} initialSessionId={openSession?.id ?? null} onOpenChat={() => setTab("chat")} />}
         {tab === "management" && <ManagementView />}
         {tab === "chat" && <ChatView onOpenSession={(id) => { setOpenSession({ id, n: (openSession?.n ?? 0) + 1 }); setTab("security"); }} />}
       </main>

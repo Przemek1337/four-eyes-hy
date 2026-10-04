@@ -33,6 +33,8 @@ export function ManagementView() {
     data: metrics.data && posture.data ? { m: metrics.data, p: posture.data } : null,
     error: metrics.error ?? posture.error,
     loading: metrics.loading || posture.loading,
+    updatedAt: Math.min(metrics.updatedAt ?? Infinity, posture.updatedAt ?? Infinity) === Infinity ? null : Math.min(metrics.updatedAt ?? Infinity, posture.updatedAt ?? Infinity),
+    refresh: () => { metrics.refresh(); posture.refresh(); },
   };
   // A control counts as removed if the controls table says so or the posture breakdown does.
   const removedIds = new Set<string>([

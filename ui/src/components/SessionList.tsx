@@ -10,15 +10,18 @@ const QUICK = [
   { label: "Needs approval", decision: "APPROVAL" },
 ];
 
-export function SessionList({ rows, onSelect, filters, onFilters, actions }: {
+export function SessionList({ rows, onSelect, filters, onFilters, actions, onOpenChat }: {
   rows: SessionRow[];
   onSelect: (id: string) => void;
   filters: SessionFilters;
   onFilters: (f: SessionFilters) => void;
   actions?: ReactNode;
+  /** where to send someone who has no sessions yet */
+  onOpenChat?: () => void;
 }) {
   const set = (patch: SessionFilters) => onFilters({ ...filters, ...patch });
   const decision = filters.decision ?? "";
+  const filtered = Object.values(filters).some((v) => v);
   return (
     <section aria-label="Sessions">
       <div className="tools">
@@ -35,7 +38,19 @@ export function SessionList({ rows, onSelect, filters, onFilters, actions }: {
         {actions && <><span className="grow" />{actions}</>}
       </div>
       {rows.length === 0 ? (
-        <p className="state">No sessions match.</p>
+        filtered ? (
+          <div className="state-box">
+            <b>No sessions match these filters</b>
+            <span>Try fewer filters, or clear them to see every session.</span>
+            <button className="btn-sm" onClick={() => onFilters({})}>Clear filters</button>
+          </div>
+        ) : (
+          <div className="state-box">
+            <b>No sessions yet</b>
+            <span>Send a message, or drop a client file, in Chat to see a session here.</span>
+            {onOpenChat && <button className="btn-sm" onClick={onOpenChat}>Open Chat</button>}
+          </div>
+        )
       ) : (
         <div className="stable">
           <div className="srow head" aria-hidden="true">
