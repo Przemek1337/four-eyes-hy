@@ -570,10 +570,15 @@ pre.diff { margin: 0; padding: 12px 16px; background: var(--surface); border-rad
 .alertbar.offline > .btn-sm { margin-left: auto; }
 .off { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
 
-/* Playground: the staged test attack */
-.attackbar { margin: 0 0 22px; display: grid; gap: 8px; }
-.ab-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.ab-hint { color: var(--muted); font-size: 14px; }
-.ab-live, .ab-done { margin: 0; font-size: 14px; }
-.ab-live b { font-weight: 600; }
+/* Playground: the staged test attack. A card like .state-box: same surface, radius and 20/24 padding, 32 px below the
+   title (the page rhythm), and one fixed layout so the card does not change height while a run goes. */
+.attackbar { margin-top: 32px; max-width: 820px; background: var(--surface); border-radius: 20px; padding: 20px 24px; display: grid; gap: 12px; }
+.ab-row { display: flex; align-items: center; justify-content: space-between; gap: 16px 24px; flex-wrap: wrap; }
+.ab-text { display: grid; gap: 4px; min-width: 0; flex: 1 1 320px; }
+.ab-text > b { font-size: 16px; font-weight: 600; }
+.ab-line { margin: 0; color: var(--muted); font-size: 14px; line-height: 22px; height: 44px; overflow: hidden;
+          display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; }  /* always two lines tall, longer text is cut */
+.ab-line b { color: var(--text); font-weight: 600; }
+.ab-line .mono { line-height: 1; }
+.ab-run { flex: none; min-width: 176px; text-align: center; white-space: nowrap; }
 .ab-run:disabled { opacity: 0.6; cursor: default; }

@@ -38,32 +38,30 @@ export function AttackDemoBar({ pollMs = POLL_MS }: { pollMs?: number }) {
 
   const unavailable = status?.state === "unavailable";
   const s = status?.summary;
+  // One line, whatever the state, so the card never changes height and the page below does not jump.
+  const line = running ? (
+    <><b>{status?.sent ?? 0} sent</b>{status?.current && <> · now: {status.current.label} <span className="mono">{status.current.actual}</span></>}</>
+  ) : status?.state === "done" && s ? (
+    <>Finished: {s.attacks_stopped} of {s.attacks} attacks stopped, {s.legit_passed} of {s.legit} normal requests passed.
+      {s.unexpected.length > 0 && <span className="state-warn"> Unexpected: {s.unexpected.join("; ")}</span>}</>
+  ) : unavailable ? (
+    "Needs the demo harness. Start the gateway with make run."
+  ) : (
+    "Sends attacks and normal requests one at a time. Watch Security and Management change."
+  );
   return (
-    <div className="attackbar" aria-label="Test attack">
+    <section className="attackbar" aria-label="Test attack">
       <div className="ab-row">
+        <div className="ab-text">
+          <b>Test attack</b>
+          <p className="ab-line" role="status" aria-live="polite" title={running && status?.current ? status.current.label : undefined}>{line}</p>
+        </div>
         <button className="btn-sm ab-run" disabled={running || unavailable} onClick={() => void start()}>
           {running ? "Attack running…" : "Run test attack"}
         </button>
-        <span className="ab-hint">
-          {unavailable
-            ? "Needs the demo harness. Start the gateway with make run."
-            : "Sends attacks and normal requests one at a time. Watch Security and Management change."}
-        </span>
       </div>
-      {running && (
-        <p className="ab-live" role="status">
-          <b>{status?.sent ?? 0} sent</b>
-          {status?.current && <> · now: {status.current.label} <span className="mono">{status.current.actual}</span></>}
-        </p>
-      )}
-      {status?.state === "done" && s && (
-        <p className="ab-done" role="status">
-          Finished: {s.attacks_stopped} of {s.attacks} attacks stopped, {s.legit_passed} of {s.legit} normal requests passed.
-          {s.unexpected.length > 0 && <span className="state-warn"> Unexpected: {s.unexpected.join("; ")}</span>}
-        </p>
-      )}
       {status?.state === "failed" && <p role="alert" className="state state-error">The run stopped: {status.error}</p>}
       {error && <p role="alert" className="state state-error">{error}</p>}
-    </div>
+    </section>
   );
 }
