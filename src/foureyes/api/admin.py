@@ -47,6 +47,7 @@ EMPTY_REPORT = {"passed": 0, "failed": 0, "positive": {"passed": 0, "failed": 0}
                 "negative": {"passed": 0, "failed": 0}, "by_owasp": {}, "false_blocks": 0, "missed_attacks": 0,
                 "ran_at": None, "policy_version": None}
 DECISIONS = ("ALLOW", "REDACT", "APPROVAL", "BLOCK")
+MAX_QUESTION_CHARS = 2000
 REPORT = Path(os.environ.get("FOUREYES_REPORT", "reports/test_report.json"))
 
 
@@ -464,9 +465,15 @@ def chat(http: HttpRequest, body: dict = Body(...)):
     if mode == "document":
         if s.document_runner is None:
             return JSONResponse({"error": "no harness runner is configured for document mode"}, status_code=501)
+        question = body.get("question")  # asked next to the file; optional, goes to the agent as a prompt, not as document text
+        if question is not None and not isinstance(question, str):
+            raise HTTPException(400, "question must be a string")
+        asked = {"question": question.strip()} if question and question.strip() else {}
+        if len(asked.get("question", "")) > MAX_QUESTION_CHARS:
+            raise HTTPException(400, f"question is longer than {MAX_QUESTION_CHARS} characters")
         upload = body.get("file")
         if upload is None:
-            return s.document_runner(text=text, session_id=sid)
+            return s.document_runner(text=text, session_id=sid, **asked)
         if not isinstance(upload, dict):
             raise HTTPException(400, "file must be an object with name, content_type and content_base64")
         try:
@@ -476,7 +483,7 @@ def chat(http: HttpRequest, body: dict = Body(...)):
         if len(pdf) > MAX_UPLOAD_BYTES:
             return JSONResponse({"error": {"message": "the file is larger than 5 MB"}}, status_code=413)
         try:
-            return s.document_runner(text=text, session_id=sid, pdf=pdf)
+            return s.document_runner(text=text, session_id=sid, pdf=pdf, **asked)
         except ValueError as exc:  # the harness could not read it: not a PDF, encrypted, no text layer
             return JSONResponse({"error": {"message": str(exc)}}, status_code=422)
     agent = s.chat_agent or "playground-agent"

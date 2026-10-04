@@ -7,7 +7,7 @@ from .pdf_text_extraction import extract_pdf_text
 
 def make_document_runner(client, tools, key: str):
     """Judges' chat, Document mode: the pasted text becomes a client upload and a KYC agent session starts."""
-    def run(text: str, session_id: str, pdf: bytes | None = None) -> dict:
+    def run(text: str, session_id: str, pdf: bytes | None = None, question: str | None = None) -> dict:
         if pdf is not None:
             text = extract_pdf_text(pdf)  # raises NotAPdf / PdfTextUnavailable (ValueError) -> 422
         subject = document_subject(text)
@@ -16,7 +16,7 @@ def make_document_runner(client, tools, key: str):
         out = run_kyc_agent(client, key=key, session_id=session_id, document_id=doc_id, client_id=client_id,
                             task=task, registry=subject["registry"] if subject else None,
                             company_number=subject["registryNumber"] if subject else None,
-                            review_only=subject is None or subject["legalStructure"] is None)
+                            review_only=subject is None or subject["legalStructure"] is None, question=question)
         last = next((s for s in reversed(out["steps"]) if s["outcome"] in ("BLOCK", "APPROVAL")), None)
         sess = client.get(f"/admin/sessions/{session_id}").json()
         decision = last["outcome"] if last else "APPROVAL" if out["status"] == "additional_verification" else "ALLOW"
