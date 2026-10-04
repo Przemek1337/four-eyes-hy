@@ -1,6 +1,7 @@
 # FourEyes Gateway — Design Spec
 
 Data: 2026-10-03 · Status: do przeglądu · Źródła prawdy: `project_brief_plus_api.md` (brief v3), `CRITERIA_AI_Control_Layer.md`, `RULES_AI_Control_Layer.md`.
+**Zmiany 2026-10-04:** modele decyzyjne (Granite Guardian, Basal), rejestry spółek i pliki demo — `2026-10-04-foureyes-decision-models-and-demo-design.md` (nadpisuje §3.1, §5, §6 i §12 w zakresie tam opisanym).
 Ten dokument **uzupełnia i nadpisuje** brief v3 tam, gdzie to wskazano w sekcji 2. Wszystko, czego tu nie zmieniono, obowiązuje według briefu.
 
 ---
