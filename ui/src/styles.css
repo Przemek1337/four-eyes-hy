@@ -529,3 +529,19 @@ pre.diff { margin: 0; padding: 12px 16px; background: var(--surface); border-rad
 .send:disabled { opacity: 0.4; }
 .composer .state { margin: 0 6px 6px; }
 .chatwrap .chat-session { margin: 12px 0 0; }
+
+/* states: loading, failed, late, empty, offline */
+.skeleton { display: grid; gap: 12px; margin: 24px 0; }
+.skeleton i { display: block; height: 52px; border-radius: 14px; background: linear-gradient(90deg, var(--surface), #1d1d1d, var(--surface)); background-size: 200% 100%; animation: shimmer 1.6s infinite; }
+.skeleton i:nth-child(2) { width: 82%; }
+.skeleton i:nth-child(3) { width: 64%; }
+@keyframes shimmer { to { background-position: -200% 0; } }
+.state-box { margin: 24px 0; background: var(--surface); border-radius: 20px; padding: 20px 24px; display: grid; gap: 10px; justify-items: start; }
+.state-box span { color: var(--muted); }
+.state-box b { font-weight: 600; font-size: 16px; }
+.state-box.late { margin: 0 0 20px; padding: 12px 18px; grid-auto-flow: column; justify-content: space-between; align-items: center; }
+.state-box.late span { font-size: 14px; }
+.btn-sm.retry { padding: 6px 18px; }
+.alertbar.offline { margin: 0 0 32px; }
+.alertbar.offline > .btn-sm { margin-left: auto; }
+.off { width: 8px; height: 8px; border-radius: 50%; background: var(--muted); display: inline-block; }
