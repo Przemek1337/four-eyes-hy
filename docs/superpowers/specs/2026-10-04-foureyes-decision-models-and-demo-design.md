@@ -15,7 +15,7 @@ Założenie: repo istnieje, a plany `2026-10-03-foureyes-backend.md` i `2026-10-
 - **Basal-1.0 4.5B** dla poufności (`data.classify_net`) i zgodności operacji (`sem.action_judge`),
 - rejestry spółek w harnessie: KRS (PL) i Companies House (GB), z plików w repo i opcjonalnie na żywo,
 - cztery PDF-y demo, generator i kalibracja tekstu granicznego,
-- kontrakt z portalem klienta (portal budowany równolegle, poza tym spec),
+- ~~kontrakt z portalem klienta~~ — usunięty, dokumenty idą przez istniejący Playground (sekcja 7),
 - scenariusz dewelopera bez uprawnień i scenariusz poufności w prompcie,
 - `make demo`, `make demo-docs`, `make eval-models`.
 
@@ -283,7 +283,9 @@ Adaptery nazwane po roli, nie po modelu, bo każdy działa z dowolnym `DecisionM
 
 **Agent KYC.** Po `entities_documents_read` agent wywołuje `public_registry_lookup` albo `uk_registry_lookup` (zależnie od rejestru wniosku), a dalej jak dotąd. Oczekiwane sekwencje kroków w testach Task 15 dostają ten krok.
 
-## 7. Kontrakt z portalem klienta
+## 7. Kontrakt z portalem klienta — USUNIĘTE (2026-10-04)
+
+**Decyzja:** portalu nie budujemy. Dokumenty klienta trafiają do agenta przez istniejący w repo **Playground** (`/admin/chat`, tryb document), a scenariusze demo uruchamiają agenta KYC bezpośrednio przez gateway. Poniższy kontrakt zostaje wyłącznie jako zapis wcześniejszej wersji.
 
 | Endpoint | Wejście | Wyjście |
 |---|---|---|

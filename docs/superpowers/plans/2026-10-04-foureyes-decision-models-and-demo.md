@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Plug two local decision models into the three AI controls (Granite Guardian for manipulation rules, Basal for data class and action consistency) and ship real demo files (registry-extract PDFs, two company registries, a client-portal contract and runnable demo scenarios).
+**Goal:** Plug two local decision models into the three AI controls (Granite Guardian for manipulation rules, Basal for data class and action consistency) and ship real demo files (registry-extract PDFs, two company registries and runnable demo scenarios; documents go through the existing Playground).
 
-**Architecture:** A `DecisionModelClient` port with Basal, Granite Guardian and mock adapters, built per policy snapshot by a `DecisionModelRegistry` on `Services`. The three existing controls ask the registry for the model named in `policy.yaml`; when no registry is wired (unit tests that pass `services=SimpleNamespace(...)`) they keep the legacy `services.injection` / `services.judge` path. Everything KYC- or registry-specific (PDFs, KRS, Companies House, portal, scenarios, mock decision rules) lives in `src/harness/`.
+**Architecture:** A `DecisionModelClient` port with Basal, Granite Guardian and mock adapters, built per policy snapshot by a `DecisionModelRegistry` on `Services`. The three existing controls ask the registry for the model named in `policy.yaml`; when no registry is wired (unit tests that pass `services=SimpleNamespace(...)`) they keep the legacy `services.injection` / `services.judge` path. Everything KYC- or registry-specific (PDFs, KRS, Companies House, scenarios, mock decision rules) lives in `src/harness/`.
 
 **Tech Stack:** Python >=3.11, FastAPI, httpx, pydantic v2, PyYAML, pytest; harness-only extras `reportlab`, `pypdf`, `python-multipart`; live models served by vLLM (Granite Guardian 4.1 8B) and the `basal` server (Basal-1.0 4.5B). UI: React 18, TypeScript, Vitest.
 
@@ -21,8 +21,8 @@
 - Granite Guardian: `ibm-granite/granite-guardian-4.1-8b`, context 8192 tokens, `max_input_tokens: 7000`. Basal: `basal-1.0-4.5B`, prompt limit 3072 tokens, `max_input_tokens: 2800`. Tokens are estimated as `len(text) / 4`; chunk overlap 200 tokens (spec §4.4).
 - Fictional companies only: Nordwind Sp. z o.o., KRS `0099000001`; Thames Freight Ltd, Companies House `99000001`.
 - Live registries only on opt-in: `KRS_LIVE=1`; `CH_API_KEY=<key>` (HTTP Basic, key as username, empty password). A live failure never falls back to the file (spec §5).
-- Portal: only `application/pdf` whose bytes start with `%PDF-`, at most 5 MB (`415` / `413` otherwise); responses never contain rules, scores or decision codes (spec §7).
-- No database: portal applications and registry caches live in memory behind ports.
+- No client portal: documents reach the agent through the existing Playground (`/admin/chat`, document mode); the spec's §7 portal contract is dropped.
+- No database: all runtime state stays in memory behind ports.
 - UI copy in English; spec and notes in Polish.
 
 ## Review Focus
@@ -30,8 +30,8 @@
 1. **A model answers with an option that is not in the request** (Basal `choice` returns an unknown key, Granite returns text without `<score>`) → the client raises, the control applies `on_error`; it never treats it as "public" or "consistent" — Task 2 and Task 3 tests `test_basal_unknown_choice_is_an_error`, `test_granite_without_score_tag_is_an_error`.
 2. **The whole document is one huge chunk-boundary case** (the injection sits exactly across the split point) → overlap keeps the phrase intact in at least one chunk — Task 1 test `test_phrase_across_the_boundary_survives_in_one_chunk`.
 3. **A live policy switch to a model that lacks a built-in rule** (`sem.prompt_injection.model: basal` with `jailbreak: builtin`) → policy accepted, warning `rule.skipped` in `policy.reloaded`, other rules still evaluated — Task 4 test `test_builtin_rule_on_basal_is_a_warning_not_an_error` and Task 6 test `test_builtin_rule_is_skipped_for_models_without_it`.
-4. **A PDF that is not what it claims** (renamed `.txt`, encrypted, image-only with no text layer) → `415` or status `additional_verification`, never an empty "clean" document — Task 14 tests (and Task 12 `test_encrypted_pdf_is_unavailable`) `test_text_file_renamed_to_pdf_is_rejected`, `test_pdf_without_text_goes_to_additional_verification`.
-5. **The client tries to learn why they were stopped** → `GET /portal/applications/{id}` for the injected PDF returns only `{application_id, status}` — Task 14 test `test_portal_never_leaks_rules_or_scores`.
+4. **A PDF that is not what it claims** (renamed `.txt`, encrypted, image-only with no text layer) → `415` or status `additional_verification`, never an empty "clean" document — Task 12 tests `test_not_a_pdf_and_a_pdf_without_text`, `test_encrypted_pdf_is_unavailable`.
+5. **The live registry is down during the demo** (`KRS_LIVE=1`, no network) → the tool answers `unavailable`, the agent stops with `additional_verification`; the file is never used as a silent fallback — Task 10 test `test_live_failure_never_falls_back_to_the_file`, Task 13 test `test_unknown_registry_number_stops_for_additional_verification`.
 
 ---
 
@@ -69,10 +69,6 @@ src/harness/
     pdf/*.pdf                             # generated by make demo-docs, committed
     generate_registry_extract_pdfs.py
     calibrate_borderline_note.py
-  client_portal/
-    portal_application_repository.py      # port + in-memory implementation
-    portal_application_service.py
-    portal_application_controller.py
   kyc/
     pdf_text_extraction.py
     mock_decision_rules.py                # domain phrases for MockDecisionClient (MODEL=mock)
@@ -3193,320 +3189,9 @@ git commit -m "feat: KYC agent checks the company registry before creating the e
 
 ---
 
-### Task 14: Client portal API (contract for the portal being built in parallel)
+### Task 14: (removed) Client portal API
 
-**Files:**
-- Create: `src/harness/client_portal/__init__.py` (empty), `src/harness/client_portal/portal_application_repository.py`, `src/harness/client_portal/portal_application_service.py`, `src/harness/client_portal/portal_application_controller.py`, `tests/test_client_portal.py`
-- Modify: `src/foureyes/cli.py` (serve the portal API on `port + 2` with `--harness kyc`)
-
-**Interfaces:**
-- Consumes: `extract_pdf_text`, `NotAPdf`, `PdfTextUnavailable` (Task 12), `run_kyc_agent(..., registry, company_number)` (Task 13), `data.CLIENT_BY_REGISTRY` (Task 11).
-- Produces:
-  - `PortalApplication(application_id, registry, company_number, client_id, session_id, status, created)` (frozen dataclass); `PortalApplicationRepository` Protocol (`add`, `get`, `set_status`); `InMemoryPortalApplicationRepository`
-  - `PortalApplicationService(tools, run_agent: Callable[..., dict], repository=None, executor=None)` with `submit(registry, company_number, data: bytes) -> PortalApplication` and `get(application_id)`; `run_agent` is called with keywords `session_id, document_id, client_id, registry, company_number, task`; `executor(job)` defaults to a daemon thread
-  - `create_portal_app(service, cors_origins=("*",)) -> FastAPI` with the contract of spec §7
-
-- [ ] **Step 1: Write failing tests `tests/test_client_portal.py`**
-
-```python
-import io
-import json
-
-from fastapi.testclient import TestClient
-from reportlab.pdfgen import canvas
-
-from harness.client_portal.portal_application_controller import create_portal_app
-from harness.client_portal.portal_application_service import PortalApplicationService
-from harness.demo_documents import PDF_DIR
-from harness.kyc.agent import run_kyc_agent
-from helpers import kyc_gateway
-
-
-def portal_for(gw, run_agent=None):
-    service = PortalApplicationService(gw.kyc, run_agent or (lambda **kw: run_kyc_agent(gw.client, key="k-kyc", **kw)),
-                                       executor=lambda job: job())
-    return TestClient(create_portal_app(service))
-
-
-def upload(portal, name, registry="krs", number="0099000001", content_type="application/pdf", data=None):
-    data = data if data is not None else (PDF_DIR / name).read_bytes()
-    return portal.post("/portal/applications", data={"registry": registry, "company_number": number},
-                       files={"file": (name, data, content_type)})
-
-
-def blank_pdf() -> bytes:
-    buf = io.BytesIO()
-    c = canvas.Canvas(buf)
-    c.showPage()
-    c.save()
-    return buf.getvalue()
-
-
-def test_clean_pdf_creates_an_application_and_runs_the_agent(tmp_path):
-    gw = kyc_gateway(tmp_path)
-    portal = portal_for(gw)
-    r = upload(portal, "nordwind_krs_clean.pdf")
-    body = r.json()
-    assert r.status_code == 201 and set(body) == {"application_id", "session_id", "status"}
-    assert body["status"] == "awaiting_approval"  # strict profile: a human signs off
-    assert portal.get(f"/portal/applications/{body['application_id']}").json() == {
-        "application_id": body["application_id"], "status": "awaiting_approval"}
-    assert "untrusted" in gw.services.sessions.get(body["session_id"]).labels
-
-
-def test_portal_never_leaks_rules_or_scores(tmp_path):
-    gw = kyc_gateway(tmp_path)
-    portal = portal_for(gw)
-    body = upload(portal, "nordwind_krs_injected.pdf").json()
-    status = portal.get(f"/portal/applications/{body['application_id']}").json()
-    assert status == {"application_id": body["application_id"], "status": "awaiting_approval"}
-    for text in (json.dumps(body), json.dumps(status)):
-        for word in ("rule", "score", "TOOL_ORDER", "APPROVAL_REQUIRED", "flow.", "high_risk", "sem."):
-            assert word not in text
-    assert "high_risk" in gw.services.sessions.get(body["session_id"]).labels  # the dashboard still knows
-
-
-def test_text_file_renamed_to_pdf_is_rejected(tmp_path):
-    portal = portal_for(kyc_gateway(tmp_path))
-    assert upload(portal, "x.pdf", data=b"hello, I am text").status_code == 415
-    assert upload(portal, "nordwind_krs_clean.pdf", content_type="text/plain").status_code == 415
-
-
-def test_file_over_5_mb_is_rejected(tmp_path):
-    big = b"%PDF-1.4\n" + b"0" * (5 * 1024 * 1024)
-    assert upload(portal_for(kyc_gateway(tmp_path)), "big.pdf", data=big).status_code == 413
-
-
-def test_pdf_without_text_goes_to_additional_verification(tmp_path):
-    ran = []
-    portal = portal_for(kyc_gateway(tmp_path), run_agent=lambda **kw: ran.append(kw))
-    body = upload(portal, "blank.pdf", data=blank_pdf()).json()
-    assert body["status"] == "additional_verification" and ran == []
-
-
-def test_unknown_registry_and_unknown_application(tmp_path):
-    portal = portal_for(kyc_gateway(tmp_path))
-    assert upload(portal, "nordwind_krs_clean.pdf", registry="handelsregister").status_code == 422
-    assert portal.get("/portal/applications/app-nope").status_code == 404
-
-
-def test_agent_crash_ends_in_additional_verification(tmp_path):
-    def boom(**kw):
-        raise RuntimeError("model down")
-
-    body = upload(portal_for(kyc_gateway(tmp_path), run_agent=boom), "nordwind_krs_clean.pdf").json()
-    assert body["status"] == "additional_verification"
-
-
-def test_uk_application_maps_to_its_client(tmp_path):
-    seen = {}
-
-    def fake(**kw):
-        seen.update(kw)
-        return {"status": "complete"}
-
-    body = upload(portal_for(kyc_gateway(tmp_path), run_agent=fake), "thames_freight_companies_house_clean.pdf",
-                  registry="companies_house", number="99000001").json()
-    assert seen["client_id"] == "C4" and seen["registry"] == "companies_house" and body["status"] == "complete"
-    assert seen["document_id"] == body["application_id"]
-```
-
-- [ ] **Step 2: Run tests to verify they fail**
-
-Run: `pytest tests/test_client_portal.py`
-Expected: FAIL (ModuleNotFoundError: harness.client_portal).
-
-- [ ] **Step 3: Implement `client_portal/portal_application_repository.py`**
-
-```python
-from __future__ import annotations
-
-import threading
-import time
-from dataclasses import dataclass, field, replace
-from typing import Protocol
-
-
-@dataclass(frozen=True)
-class PortalApplication:
-    application_id: str
-    registry: str
-    company_number: str
-    client_id: str
-    session_id: str
-    status: str
-    created: float = field(default_factory=time.time)
-
-
-class PortalApplicationRepository(Protocol):
-    def add(self, application: PortalApplication) -> None: ...
-
-    def get(self, application_id: str) -> PortalApplication | None: ...
-
-    def set_status(self, application_id: str, status: str) -> None: ...
-
-
-class InMemoryPortalApplicationRepository:
-    """MVP storage: no database (a real one plugs in behind the same port)."""
-
-    def __init__(self) -> None:
-        self._items: dict[str, PortalApplication] = {}
-        self._lock = threading.Lock()
-
-    def add(self, application: PortalApplication) -> None:
-        with self._lock:
-            self._items[application.application_id] = application
-
-    def get(self, application_id: str) -> PortalApplication | None:
-        return self._items.get(application_id)
-
-    def set_status(self, application_id: str, status: str) -> None:
-        with self._lock:
-            self._items[application_id] = replace(self._items[application_id], status=status)
-```
-
-- [ ] **Step 4: Implement `client_portal/portal_application_service.py`**
-
-```python
-from __future__ import annotations
-
-import threading
-import uuid
-from dataclasses import replace
-from typing import Callable
-
-from harness.kyc import data
-from harness.kyc.pdf_text_extraction import PdfTextUnavailable, extract_pdf_text
-
-from .portal_application_repository import InMemoryPortalApplicationRepository, PortalApplication
-
-REGISTRIES = ("krs", "companies_house")
-FINAL_STATUSES = ("complete", "awaiting_approval", "additional_verification", "blocked")
-
-
-def _thread(job: Callable[[], None]) -> None:
-    threading.Thread(target=job, daemon=True).start()
-
-
-class PortalApplicationService:
-    """A client's upload becomes an untrusted document and a KYC agent session behind the gateway."""
-
-    def __init__(self, tools, run_agent: Callable[..., dict], repository=None, executor=None):
-        self.tools = tools
-        self.run_agent = run_agent
-        self.repository = repository or InMemoryPortalApplicationRepository()
-        self.executor = executor or _thread
-
-    def submit(self, registry: str, company_number: str, pdf: bytes) -> PortalApplication:
-        if registry not in REGISTRIES:
-            raise ValueError("registry must be krs or companies_house")
-        number = company_number.strip().upper()
-        app_id = f"app-{uuid.uuid4().hex[:8]}"
-        application = PortalApplication(app_id, registry, number, data.CLIENT_BY_REGISTRY.get((registry, number), f"C-{app_id}"),
-                                        f"portal-{app_id}", "processing")
-        try:
-            text = extract_pdf_text(pdf)  # NotAPdf propagates: the controller answers 415
-        except PdfTextUnavailable:
-            self.repository.add(replace(application, status="additional_verification"))
-            return self.repository.get(app_id)
-        self.tools.documents[app_id] = text
-        self.repository.add(application)
-        self.executor(lambda: self._run(application))
-        return self.repository.get(app_id)
-
-    def _run(self, application: PortalApplication) -> None:
-        try:
-            out = self.run_agent(session_id=application.session_id, document_id=application.application_id,
-                                 client_id=application.client_id, registry=application.registry,
-                                 company_number=application.company_number,
-                                 task=f"KYC onboarding for {application.registry} {application.company_number}")
-            status = out.get("status") if out.get("status") in FINAL_STATUSES else "additional_verification"
-        except Exception:
-            status = "additional_verification"
-        self.repository.set_status(application.application_id, status)
-
-    def get(self, application_id: str) -> PortalApplication | None:
-        return self.repository.get(application_id)
-```
-
-- [ ] **Step 5: Implement `client_portal/portal_application_controller.py`**
-
-```python
-from __future__ import annotations
-
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile
-from fastapi.middleware.cors import CORSMiddleware
-
-from harness.kyc.pdf_text_extraction import NotAPdf
-
-MAX_BYTES = 5 * 1024 * 1024
-
-
-def create_portal_app(service, cors_origins=("*",)) -> FastAPI:
-    """Client-facing API. Answers carry the status only: never rules, scores or decision codes (spec §7)."""
-    app = FastAPI(title="Client portal API")
-    app.add_middleware(CORSMiddleware, allow_origins=list(cors_origins), allow_methods=["GET", "POST"],
-                       allow_headers=["*"])
-
-    @app.post("/portal/applications", status_code=201)
-    async def submit(registry: str = Form(...), company_number: str = Form(...), file: UploadFile = File(...)):
-        pdf = await file.read(MAX_BYTES + 1)
-        if len(pdf) > MAX_BYTES:
-            raise HTTPException(413, "the file is larger than 5 MB")
-        if file.content_type != "application/pdf" or not pdf.startswith(b"%PDF-"):
-            raise HTTPException(415, "only PDF files are accepted")
-        try:
-            application = service.submit(registry, company_number, pdf)
-        except NotAPdf:
-            raise HTTPException(415, "only PDF files are accepted")
-        except ValueError as exc:
-            raise HTTPException(422, str(exc))
-        return {"application_id": application.application_id, "session_id": application.session_id,
-                "status": application.status}
-
-    @app.get("/portal/applications/{application_id}")
-    def status(application_id: str):
-        application = service.get(application_id)
-        if application is None:
-            raise HTTPException(404, "unknown application")
-        return {"application_id": application.application_id, "status": application.status}
-
-    return app
-```
-
-- [ ] **Step 6: Serve the portal API from the CLI**
-
-`cli.py` — inside `build`, in the `if harness == "kyc":` block at the end of the function (where `make_document_runner` is wired), add:
-```python
-        from harness.client_portal.portal_application_controller import create_portal_app
-        from harness.client_portal.portal_application_service import PortalApplicationService
-        from harness.kyc.agent import run_kyc_agent
-
-        portal_client = httpx.Client(base_url=f"http://127.0.0.1:{port}", timeout=300.0)
-        kyc_key = os.environ.get("KYC_AGENT_KEY", "")
-        portal = PortalApplicationService(tools, lambda **kw: run_kyc_agent(portal_client, key=kyc_key, **kw))
-        origins = os.environ.get("PORTAL_CORS_ORIGINS", "*").split(",")
-        threading.Thread(target=lambda: uvicorn.run(create_portal_app(portal, origins), host="127.0.0.1",
-                                                    port=port + 2, log_level="warning"), daemon=True).start()
-```
-
-- [ ] **Step 7: Run tests to verify they pass**
-
-Run: `pytest tests/test_client_portal.py`
-Expected: PASS (8 tests).
-
-- [ ] **Step 8: Smoke-run**
-
-Run: `MODEL=mock python -m foureyes.cli serve --policy policy.yaml --harness kyc` (keep running), then in another terminal:
-`curl -s -F registry=krs -F company_number=0099000001 -F "file=@src/harness/demo_documents/pdf/nordwind_krs_injected.pdf;type=application/pdf" localhost:8082/portal/applications`
-Expected: `201` with `{"application_id": "...", "session_id": "portal-...", "status": "processing"}`; a second `curl -s localhost:8082/portal/applications/<id>` a moment later shows `awaiting_approval`; the session appears in the dashboard with `high_risk`. Stop the server.
-
-- [ ] **Step 9: Commit**
-
-```bash
-git add src/harness/client_portal src/foureyes/cli.py tests/test_client_portal.py
-git commit -m "feat: client portal API (upload PDF, status only) behind the KYC agent"
-```
+Dropped on 2026-10-04: documents reach the agent through the **Playground** that is already in the repo (`/admin/chat`, document mode, UI tab "Playground"), and the demo scenarios drive the KYC agent directly (Task 15). No portal code is written.
 
 ---
 
@@ -3517,13 +3202,15 @@ git commit -m "feat: client portal API (upload PDF, status only) behind the KYC 
 - Modify: `policy.yaml` (agent `aneta-dev-cli` and its budget), `src/foureyes/cli.py` (default dev key), `Makefile` (`demo`, `calibrate-note`)
 
 **Interfaces:**
-- Consumes: portal (Task 14), PDFs (Task 12), registry tools (Task 11), `MOCK_DECISION_RULES`, `BORDERLINE_NOTE_PREFIX` (Task 9), `assess_injection` (Task 6), `DecisionModelRegistry` (Task 5), `generate` (Task 12).
+- Consumes: `run_kyc_agent(..., registry, company_number)` (Task 13), PDF-backed document ids in `data.PDF_DOCUMENTS` (Task 12), registry tools (Task 11), `MOCK_DECISION_RULES`, `BORDERLINE_NOTE_PREFIX` (Task 9), `assess_injection` (Task 6), `DecisionModelRegistry` (Task 5), `generate` (Task 12).
 - Produces:
-  - `DemoEnvironment(gateway, portal, kyc_key, dev_key, live_krs_number="0099000001", pdf_dir=PDF_DIR, poll_timeout_s=180.0, poll_interval_s=1.0, run_id=<6 hex>)`; `ScenarioResult(name, checks)` with `check(what, expected, actual)` and `ok`
-  - helpers `policy_profile(env)`, `submit_pdf(env, file_name, registry, number) -> {status, session, events, raw}`, `tool_decisions(events) -> {tool: {"decision", "code"}}`, `mcp_call(env, key, tool, args, session, scope="client_id=C1") -> {"decision", "code"}`
+  - `DemoEnvironment(gateway, kyc_key, dev_key, live_krs_number="0099000001", run_id=<6 hex>)`; `ScenarioResult(name, checks)` with `check(what, expected, actual)` and `ok`
+  - helpers `policy_profile(env)`, `expected_final_status(env)`, `run_document(env, document_id, registry, number, client_id="C1", task=...) -> {status, session, events, raw}`, `tool_decisions(events) -> {tool: {"decision", "code"}}`, `mcp_call(env, key, tool, args, session, scope="client_id=C1") -> {"decision", "code"}`
   - each scenario module: `NAME: str`, `run(env) -> ScenarioResult`
   - `run_all(env) -> list[ScenarioResult]`, `format_table(results) -> str`, `main(argv=None) -> int`
   - `CANDIDATES: tuple[str, ...]`, `calibrate(client, model_name, conf, candidates=CANDIDATES) -> dict | None`
+
+The scenarios play the role of the KYC agent's caller: they run `run_kyc_agent` against the gateway over HTTP (as any external agent would) with a PDF-backed document id, then read the session from the admin API. The same documents can be tried by hand in the Playground.
 
 - [ ] **Step 1: Add the developer agent to `policy.yaml`**
 
@@ -3543,16 +3230,12 @@ Under `budgets:` add `    aneta-dev-cli: { daily_usd: 0.50, daily_compute_second
 
 ```python
 import pytest
-from fastapi.testclient import TestClient
 
 from foureyes.semantic.decision_model_registry import DecisionModelRegistry
 from foureyes.semantic.mock_decision_client import MockDecisionClient
-from harness.client_portal.portal_application_controller import create_portal_app
-from harness.client_portal.portal_application_service import PortalApplicationService
 from harness.demo_documents.calibrate_borderline_note import CANDIDATES, calibrate
 from harness.demo_scenarios.demo_environment import DemoEnvironment, ScenarioResult
 from harness.demo_scenarios.run_all_demo_scenarios import format_table, run_all
-from harness.kyc.agent import run_kyc_agent
 from harness.kyc.mock_decision_rules import BORDERLINE_NOTE_PREFIX, MOCK_DECISION_RULES
 from helpers import kyc_gateway, snapshot
 
@@ -3564,10 +3247,7 @@ def demo_env(tmp_path, monkeypatch, profile):
     monkeypatch.setenv("ANETA_DEV_CLI_KEY", "k-dev")
     gw = kyc_gateway(tmp_path, overrides={"profile": profile},
                      decision_models=DecisionModelRegistry(override=MockDecisionClient(**MOCK_DECISION_RULES)))
-    service = PortalApplicationService(gw.kyc, lambda **kw: run_kyc_agent(gw.client, key="k-kyc", **kw),
-                                       executor=lambda job: job())
-    return DemoEnvironment(gateway=gw.client, portal=TestClient(create_portal_app(service)), kyc_key="k-kyc",
-                           dev_key="k-dev")
+    return DemoEnvironment(gateway=gw.client, kyc_key="k-kyc", dev_key="k-dev")
 
 
 @pytest.mark.parametrize("profile", ["strict", "relaxed"])
@@ -3601,26 +3281,20 @@ Expected: FAIL (ModuleNotFoundError: harness.demo_scenarios).
 from __future__ import annotations
 
 import json
-import time
 import uuid
 from dataclasses import dataclass, field
-from pathlib import Path
 
 import httpx
 
-from harness.demo_documents import PDF_DIR
+from harness.kyc.agent import run_kyc_agent
 
 
 @dataclass
 class DemoEnvironment:
-    gateway: httpx.Client          # base_url = the gateway (TestClient works too)
-    portal: httpx.Client           # base_url = the portal API
+    gateway: httpx.Client          # base_url = the gateway (a FastAPI TestClient works too)
     kyc_key: str
     dev_key: str
     live_krs_number: str = "0099000001"
-    pdf_dir: Path = PDF_DIR
-    poll_timeout_s: float = 180.0
-    poll_interval_s: float = 1.0
     run_id: str = field(default_factory=lambda: uuid.uuid4().hex[:6])
 
 
@@ -3646,18 +3320,14 @@ def expected_final_status(env: DemoEnvironment) -> str:
     return "complete" if policy_profile(env) == "relaxed" else "awaiting_approval"
 
 
-def submit_pdf(env: DemoEnvironment, file_name: str, registry: str, number: str) -> dict:
-    pdf = (env.pdf_dir / file_name).read_bytes()
-    r = env.portal.post("/portal/applications", data={"registry": registry, "company_number": number},
-                        files={"file": (file_name, pdf, "application/pdf")})
-    r.raise_for_status()
-    body = r.json()
-    status, deadline = body["status"], time.monotonic() + env.poll_timeout_s
-    while status == "processing" and time.monotonic() < deadline:
-        time.sleep(env.poll_interval_s)
-        status = env.portal.get(f"/portal/applications/{body['application_id']}").json()["status"]
-    detail = env.gateway.get(f"/admin/sessions/{body['session_id']}").json()
-    return {"status": status, "session": detail["session"], "events": detail["events"],
+def run_document(env: DemoEnvironment, document_id: str, registry: str, number: str, client_id: str = "C1",
+                 task: str = "KYC onboarding for Nordwind Sp. z o.o.") -> dict:
+    """The KYC agent reads one PDF-backed client document through the gateway; returns what compliance sees."""
+    session_id = f"demo-{document_id}-{env.run_id}"
+    out = run_kyc_agent(env.gateway, key=env.kyc_key, session_id=session_id, document_id=document_id,
+                        client_id=client_id, registry=registry, company_number=number, task=task)
+    detail = env.gateway.get(f"/admin/sessions/{session_id}").json()
+    return {"status": out["status"], "session": detail["session"], "events": detail["events"],
             "raw": json.dumps(detail, ensure_ascii=False)}
 
 
@@ -3681,13 +3351,13 @@ def mcp_call(env: DemoEnvironment, key: str, tool: str, args: dict, session: str
 
 `demo_scenarios/clean_registry_extract.py`:
 ```python
-from .demo_environment import ScenarioResult, expected_final_status, submit_pdf, tool_decisions
+from .demo_environment import ScenarioResult, expected_final_status, run_document, tool_decisions
 
 NAME = "clean_registry_extract"
 
 
 def run(env) -> ScenarioResult:
-    out = submit_pdf(env, "nordwind_krs_clean.pdf", "krs", "0099000001")
+    out = run_document(env, "nordwind-krs-clean", "krs", "0099000001")
     labels = out["session"]["labels"]
     return (ScenarioResult(NAME)
             .check("status", expected_final_status(env), out["status"])
@@ -3698,13 +3368,13 @@ def run(env) -> ScenarioResult:
 
 `demo_scenarios/injected_registry_extract.py`:
 ```python
-from .demo_environment import ScenarioResult, submit_pdf, tool_decisions
+from .demo_environment import ScenarioResult, run_document, tool_decisions
 
 NAME = "injected_registry_extract"
 
 
 def run(env) -> ScenarioResult:
-    out = submit_pdf(env, "nordwind_krs_injected.pdf", "krs", "0099000001")
+    out = run_document(env, "nordwind-krs-injected", "krs", "0099000001")
     labels, tools = out["session"]["labels"], tool_decisions(out["events"])
     return (ScenarioResult(NAME)
             .check("status", "awaiting_approval", out["status"])
@@ -3716,14 +3386,14 @@ def run(env) -> ScenarioResult:
 
 `demo_scenarios/borderline_registry_extract.py`:
 ```python
-from .demo_environment import ScenarioResult, submit_pdf
+from .demo_environment import ScenarioResult, run_document
 
 NAME = "borderline_registry_extract"
 DIRECTOR_PESEL = "44051401359"
 
 
 def run(env) -> ScenarioResult:
-    out = submit_pdf(env, "nordwind_krs_borderline.pdf", "krs", "0099000001")
+    out = run_document(env, "nordwind-krs-borderline", "krs", "0099000001")
     return (ScenarioResult(NAME)
             .check("status", "awaiting_approval", out["status"])
             .check("unsure model still marks high_risk", True, "high_risk" in out["session"]["labels"])
@@ -3732,13 +3402,14 @@ def run(env) -> ScenarioResult:
 
 `demo_scenarios/uk_registry_extract.py`:
 ```python
-from .demo_environment import ScenarioResult, expected_final_status, submit_pdf, tool_decisions
+from .demo_environment import ScenarioResult, expected_final_status, run_document, tool_decisions
 
 NAME = "uk_registry_extract"
 
 
 def run(env) -> ScenarioResult:
-    out = submit_pdf(env, "thames_freight_companies_house_clean.pdf", "companies_house", "99000001")
+    out = run_document(env, "thames-freight-clean", "companies_house", "99000001", client_id="C4",
+                       task="KYC onboarding for Thames Freight Ltd")
     return (ScenarioResult(NAME)
             .check("status", expected_final_status(env), out["status"])
             .check("UK registry checked", "ALLOW", tool_decisions(out["events"]).get("uk_registry_lookup", {}).get("decision")))
@@ -3806,12 +3477,10 @@ def format_table(results: list[ScenarioResult]) -> str:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="make demo", description="Run every demo scenario against a running gateway.")
-    p.add_argument("--gateway", default="http://127.0.0.1:8080")
-    p.add_argument("--portal", default="http://127.0.0.1:8082")
+    p.add_argument("--gateway", default=os.environ.get("GATEWAY", "http://127.0.0.1:8080"))
     p.add_argument("--live-krs-number", default=os.environ.get("DEMO_LIVE_KRS_NUMBER", "0099000001"))
     args = p.parse_args(argv)
     env = DemoEnvironment(gateway=httpx.Client(base_url=args.gateway, timeout=300.0),
-                          portal=httpx.Client(base_url=args.portal, timeout=60.0),
                           kyc_key=os.environ.get("KYC_AGENT_KEY", "dev-kyc_agent_key"),
                           dev_key=os.environ.get("ANETA_DEV_CLI_KEY", "dev-aneta_dev_cli_key"),
                           live_krs_number=args.live_krs_number)
@@ -3898,14 +3567,14 @@ Expected: PASS (both profiles). If a check fails, the assertion message is the `
 
 - [ ] **Step 9: Run the demo end to end on mocks**
 
-Run: `MODEL=mock make run` (keep running), then in another terminal `make demo`
-Expected: five `PASS` lines and exit code 0; the sessions appear live in the dashboard.
+Run: `MODEL=mock make run` (keep running; on a machine without Python 3.11+ use the Docker command from the README), then in another terminal `make demo`
+Expected: five `PASS` lines and exit code 0; the sessions appear live in the dashboard (Security view). The same PDFs' text can be tried by hand in the Playground (document mode).
 
 - [ ] **Step 10: Commit**
 
 ```bash
 git add policy.yaml src/foureyes/cli.py Makefile src/harness/demo_scenarios src/harness/demo_documents/calibrate_borderline_note.py tests/test_demo_scenarios.py
-git commit -m "feat: runnable demo scenarios (PDFs via the portal, developer without access) and note calibration"
+git commit -m "feat: runnable demo scenarios (registry-extract PDFs, developer without access) and note calibration"
 ```
 
 ---
@@ -4141,21 +3810,21 @@ An unconfident answer (`confidence < min_confidence`) always goes to the stricte
 Run the models (NVIDIA GPU): `vllm serve ibm-granite/granite-guardian-4.1-8b --port 8001` and the Basal server on port 8000 (see `docs/superpowers/notes/2026-10-04-decision-models-spike.md` for the exact commands). Without them, `MODEL=mock make run` uses a deterministic mock.
 
 Demo: `make demo-docs` (PDFs), `make calibrate-note` (borderline note on the live model), `MODEL=mock make run` or `make run`, then `make demo`. `make eval-models` writes `reports/decision_models_eval.json` (accuracy per model, check and language; p50/p95 latency).
-Client portal API: `POST /portal/applications` (multipart `registry`, `company_number`, `file`), `GET /portal/applications/{id}` on port 8082.
+Without Python 3.11+ on the host, run the gateway in Docker: `docker run -d --name foureyes-demo -p 8080:8080 -v "$PWD":/src:ro -e MODEL=mock python:3.12-slim sh -c "cp -r /src /app && cd /app && pip install -q -e '.[dev,harness]' && exec python -m foureyes.cli serve --policy /src/policy.yaml --harness kyc --host 0.0.0.0"` (the policy file is read from the repo, so editing it reloads the gateway live).
 Registries: files by default; `KRS_LIVE=1` for the public KRS API, `CH_API_KEY=<key>` for Companies House.
 ```
 In **Honest limits** add: "Granite Guardian is trained and tested on English only; Polish documents are measured in `make eval-models`. The gateway knows agent keys, not people: one `agents:` entry per person/tool until human identity lands (remediation plan)." In **Licenses** add: "Granite Guardian 4.1 (Apache-2.0), Basal-1.0 (Apache-2.0), reportlab (BSD), pypdf (BSD-3), python-multipart (Apache-2.0)."
 
 `docs/superpowers/specs/2026-10-03-foureyes-gateway-design.md` — under the header line add:
 ```markdown
-**Zmiany 2026-10-04:** modele decyzyjne (Granite Guardian, Basal), rejestry spółek, pliki demo i portal klienta — `2026-10-04-foureyes-decision-models-and-demo-design.md` (nadpisuje §3.1, §5, §6 i §12 w zakresie tam opisanym).
+**Zmiany 2026-10-04:** modele decyzyjne (Granite Guardian, Basal), rejestry spółek i pliki demo — `2026-10-04-foureyes-decision-models-and-demo-design.md` (nadpisuje §3.1, §5, §6 i §12 w zakresie tam opisanym).
 ```
 
 - [ ] **Step 8: Commit**
 
 ```bash
 git add src/harness/demo_documents/eval_set.json src/harness/demo_scenarios/evaluate_decision_models.py tests/test_decision_model_evaluation.py Makefile README.md docs/superpowers/specs/2026-10-03-foureyes-gateway-design.md
-git commit -m "feat: decision model evaluation report (PL/EN) and docs for models, demo and portal"
+git commit -m "feat: decision model evaluation report (PL/EN) and docs for models and demo"
 ```
 
 ---
@@ -4328,15 +3997,15 @@ git commit -m "feat(ui): show the decision model, rule and confidence in Why, ch
 | §4.1–4.3 semantics, uncertainty to the stricter side, `rule.skipped` warning | 4, 6, 7, 8 |
 | §4.4 chunks | 1, 6, 7 |
 | §4.5 audit `ai`, latency, posture −10 per model | 5, 6, 9 |
-| §5 fail-closed table (timeouts, no `<score>`, hard label, classifier exception, bad PDF, live registry down) | 2, 3, 7, 10, 12, 14 |
+| §5 fail-closed table (timeouts, no `<score>`, hard label, classifier exception, bad PDF, live registry down) | 2, 3, 7, 10, 12, 13 |
 | §6.1 registries, live opt-in, `uk_registry_lookup` as config | 10, 11 |
 | §6.2 fictional companies, number checks | 10 |
 | §6.3 four PDFs, calibration, extraction of hidden text | 12, 15 |
-| §6.4 file layout, harness-only deps | 10, 12, 14, 15 |
+| §6.4 file layout, harness-only deps | 10, 12, 15 |
 | §6 agent registry step | 13 |
-| §7 portal contract (status only, `%PDF-`, 5 MB, in-memory repo) | 14 |
+| §7 portal contract | dropped: documents go through the existing Playground; scenarios drive the agent directly (15) |
 | §8.1–8.3 scenarios, developer, `make demo`, live switch | 6 (live switch test), 15 |
-| §9 tests (clients, controls, validator, chunks, harness, scenarios on mocks, architecture) | 1–15; architecture test unchanged (core imports nothing from harness) |
+| §9 tests (clients, controls, validator, chunks, harness, scenarios on mocks, architecture) | 1–13, 15; architecture test unchanged (core imports nothing from harness) |
 | §9 `make eval-models` | 16 |
 | §10 docs and UI changes | 16, 17 |
 | §10 step 0 spike | 0 |
@@ -4344,4 +4013,5 @@ git commit -m "feat(ui): show the decision model, rule and confidence in Why, ch
 Known deviations, decided while planning:
 - The evaluation lives in `harness/demo_scenarios/evaluate_decision_models.py` (run by `make eval-models`), not in `scripts/`, so it is importable and tested.
 - The brief file in the repo root is untracked; it is not edited by this plan. The gateway spec gets a pointer to the delta spec instead.
+- The client portal (spec §7) is dropped: the Playground already takes client documents (document mode).
 - `make demo MODEL=mock` from the spec is two commands: `MODEL=mock make run` (server) and `make demo` (scenarios); the same scenarios also run inside `make test`.
