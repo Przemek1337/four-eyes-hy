@@ -10,14 +10,14 @@ const QUICK = [
   { label: "Needs approval", decision: "APPROVAL" },
 ];
 
-export function SessionList({ rows, onSelect, filters, onFilters, actions, onOpenChat }: {
+export function SessionList({ rows, onSelect, filters, onFilters, actions, onOpenPlayground }: {
   rows: SessionRow[];
   onSelect: (id: string) => void;
   filters: SessionFilters;
   onFilters: (f: SessionFilters) => void;
   actions?: ReactNode;
   /** where to send someone who has no sessions yet */
-  onOpenChat?: () => void;
+  onOpenPlayground?: () => void;
 }) {
   const set = (patch: SessionFilters) => onFilters({ ...filters, ...patch });
   const decision = filters.decision ?? "";
@@ -47,8 +47,8 @@ export function SessionList({ rows, onSelect, filters, onFilters, actions, onOpe
         ) : (
           <div className="state-box">
             <b>No sessions yet</b>
-            <span>Send a message, or drop a client file, in Chat to see a session here.</span>
-            {onOpenChat && <button className="btn-sm" onClick={onOpenChat}>Open Chat</button>}
+            <span>Send a message, or drop a client file, in the Playground to see a session here.</span>
+            {onOpenPlayground && <button className="btn-sm" onClick={onOpenPlayground}>Open Playground</button>}
           </div>
         )
       ) : (

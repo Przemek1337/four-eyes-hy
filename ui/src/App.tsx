@@ -9,13 +9,13 @@ import { SecurityView } from "./views/SecurityView";
 const ICONS = {
   security: "M12 3l7 3v5c0 4.5-3 8-7 10-4-2-7-5.5-7-10V6z",
   management: "M4 20V10M10 20V4M16 20v-7M22 20H2",
-  chat: "M21 12a8 8 0 01-11.6 7.1L4 20l1-4.6A8 8 0 1121 12z",
+  playground: "M21 12a8 8 0 01-11.6 7.1L4 20l1-4.6A8 8 0 1121 12z",
 };
 
 const TABS = [
   { id: "security", label: "Security" },
   { id: "management", label: "Management" },
-  { id: "chat", label: "Chat" },
+  { id: "playground", label: "Playground" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -51,9 +51,9 @@ function Shell() {
       </aside>
       <main className="main">
         <ConnectionBanner />
-        {tab === "security" && <SecurityView key={openSession?.n ?? 0} initialSessionId={openSession?.id ?? null} onOpenChat={() => setTab("chat")} />}
+        {tab === "security" && <SecurityView key={openSession?.n ?? 0} initialSessionId={openSession?.id ?? null} onOpenPlayground={() => setTab("playground")} />}
         {tab === "management" && <ManagementView />}
-        {tab === "chat" && <ChatView onOpenSession={(id) => { setOpenSession({ id, n: (openSession?.n ?? 0) + 1 }); setTab("security"); }} />}
+        {tab === "playground" && <ChatView onOpenSession={(id) => { setOpenSession({ id, n: (openSession?.n ?? 0) + 1 }); setTab("security"); }} />}
       </main>
     </div>
   );
