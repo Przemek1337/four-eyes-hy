@@ -63,6 +63,9 @@ describe("summaryFor / alertText", () => {
     expect(text).toContain("anonymization not applied");
     expect(alertText({ kind: "document.injection", score: 0.95 })).toBe("Injection detector flagged the document (score 0.95)");
     expect(alertText({ kind: "budget.soft", pct: 85 })).toBe("Budget at 85%");
+    expect(alertText({ kind: "judge.inconsistent" })).toBe("The AI judge found the action inconsistent with the task");
+    expect(alertText({ kind: "output.canary" })).toBe("A canary from the system prompt appeared in the output");
+    expect(alertText({ kind: "output.unsafe" })).toBe("Unsafe content found in the output");
     expect(alertText({ kind: "something.new" })).toBe("something.new");
   });
   it("defaults to Allowed and flags audit logging without redaction", () => {

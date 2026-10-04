@@ -117,6 +117,21 @@ describe("WhyBlocked", () => {
     expect(within(panel).getByText("0.95")).toBeInTheDocument();
     expect(within(panel).getByText(/policy v4/)).toBeInTheDocument();
   });
+  it("finds the detector score in the verdict detail or an alert when the event has no top-level score", () => {
+    const { rerender } = render(<WhyBlocked event={fx.decision({ decision: "BLOCK", detail: { score: 0.81 } })} />);
+    expect(screen.getByText("0.81")).toBeInTheDocument();
+    rerender(<WhyBlocked event={fx.decision({ decision: "BLOCK", alerts: [{ kind: "document.injection", score: 0.7 }] })} />);
+    expect(screen.getByText("0.70")).toBeInTheDocument();
+    rerender(<WhyBlocked event={fx.decision({ decision: "BLOCK", injection_score: 0.99, detail: { score: 0.1 } })} />);
+    expect(screen.getByText("0.99")).toBeInTheDocument(); // the top-level field wins
+  });
+
+  it("merges OWASP tags from the event and its alerts without repeating one", () => {
+    render(<WhyBlocked event={fx.decision({ decision: "BLOCK", owasp: ["LLM01:2026"], alerts: [{ kind: "document.injection", owasp: ["LLM01:2026", "ASI01"] }] })} />);
+    expect(screen.getAllByText("LLM01:2026")).toHaveLength(1);
+    expect(screen.getByText("ASI01")).toBeInTheDocument();
+  });
+
   it("prefers the contract fields evidence and reference when the backend sends them", () => {
     const ev = fx.decision({ decision: "BLOCK", signature_id: "SIG-PKL-001", reference: "Malicious pickle models (2024)", evidence: "os.system", detail: {} });
     render(<WhyBlocked event={ev} />);
