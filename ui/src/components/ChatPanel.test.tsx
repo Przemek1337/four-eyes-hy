@@ -244,10 +244,10 @@ describe("attachments", () => {
 
   it("explains a file it cannot read instead of failing silently", async () => {
     render(<ChatPanel />);
-    fireEvent.change(input(), { target: { files: [file("scan.pdf", "%PDF-1.4", "application/pdf")] } });
-    expect(await screen.findByRole("alert")).toHaveTextContent("scan.pdf is not a text file");
-    expect(screen.getByRole("alert")).toHaveTextContent(".txt, .md, .csv, .json, .eml and .log");
-    expect(screen.queryByText("scan.pdf")).not.toBeInTheDocument();
+    fireEvent.change(input(), { target: { files: [file("scan.png", "PNG", "image/png")] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent("scan.png is not a text or PDF file");
+    expect(screen.getByRole("alert")).toHaveTextContent(".pdf, .txt, .md, .csv, .json, .eml and .log");
+    expect(screen.queryByText("scan.png")).not.toBeInTheDocument();
     fireEvent.change(input(), { target: { files: [file("big.txt", "x".repeat(201 * 1024))] } });
     expect(await screen.findByRole("alert")).toHaveTextContent("The limit is 200 KB");
     fireEvent.change(input(), { target: { files: [file("empty.txt", "   ")] } });
@@ -287,5 +287,27 @@ describe("attachments", () => {
     const card = await screen.findByRole("article", { name: "Result 2" });
     await userEvent.click(within(card).getByRole("button", { name: "Open this session in Security" }));
     expect(onOpen).toHaveBeenCalledWith("doc-7");
+  });
+});
+
+describe("PDF attachments", () => {
+  it("sends a PDF as a file for the gateway to read", async () => {
+    vi.mocked(api.chat).mockResolvedValue(docResult());
+    render(<ChatPanel />);
+    fireEvent.change(input(), { target: { files: [file("odpis.pdf", "%PDF-1.4 body", "application/pdf")] } });
+    expect(await screen.findByText("odpis.pdf")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+    const body = vi.mocked(api.chat).mock.calls[0][0];
+    expect(body.mode).toBe("document");
+    expect(body.file).toEqual({ name: "odpis.pdf", content_type: "application/pdf", content_base64: btoa("%PDF-1.4 body") });
+  });
+
+  it("rejects a file that only pretends to be a PDF, and a PDF over 5 MB", async () => {
+    render(<ChatPanel />);
+    fireEvent.change(input(), { target: { files: [file("fake.pdf", "hello", "application/pdf")] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent("fake.pdf is not a PDF file");
+    fireEvent.change(input(), { target: { files: [file("huge.pdf", "%PDF-" + "0".repeat(5 * 1024 * 1024), "application/pdf")] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent("The limit for a PDF is 5120 KB");
+    expect(api.chat).not.toHaveBeenCalled();
   });
 });

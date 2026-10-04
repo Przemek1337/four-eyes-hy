@@ -156,6 +156,11 @@ describe("chat", () => {
     expect(chat(m, { mode: "prompt", text: "PESEL 44051401359" })).toMatchObject({ decision: "ALLOW", data_class: "personal_data", route: { type: "local" } });
     expect(chat(m, { mode: "prompt", text: "what is a sole trader" }).reply).toMatch(/articles of association/);
   });
+  it("treats a dropped PDF by its name: an injected one is stopped, a clean one goes through", () => {
+    const pdf = (name) => ({ mode: "document", text: "", file: { name, content_type: "application/pdf", content_base64: "JVBERi0=" } });
+    expect(chat(fresh(), pdf("nordwind_krs_injected.pdf"))).toMatchObject({ decision: "APPROVAL", message: "awaiting_approval" });
+    expect(chat(fresh(), pdf("nordwind_krs_clean.pdf"))).toMatchObject({ decision: "ALLOW" });
+  });
   it("keeps the session id it was given and makes up a new one otherwise", () => {
     const m = fresh();
     expect(chat(m, { mode: "prompt", text: "a", session_id: "keep-me" }).session_id).toBe("keep-me");
