@@ -100,6 +100,7 @@ class Engine:
             "alerts": ctx.alerts, "monitor": [{"rule": m.rule, "outcome": m.outcome.value} for m in ctx.monitor],
             "detail": v.detail,
             "injection_score": ctx.notes.get("injection_score"),
+            "ai": ctx.notes.get("ai"),
             "reference": v.detail.get("reference"),
             "judge": self._judge(ctx, v),
             "evidence": self._evidence(ctx, v),
