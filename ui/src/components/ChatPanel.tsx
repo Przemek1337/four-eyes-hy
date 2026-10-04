@@ -1,31 +1,50 @@
 import { useEffect, useRef, useState } from "react";
+import { aiSummary, pickAi } from "../aiInfo";
 import { api } from "../api/client";
 import type { ChatResult } from "../api/types";
 import { fmtMs } from "../format";
 import { DecisionPill } from "./Badge";
 
-/** A file waiting to be sent. The gateway reads its text as an untrusted client document. */
-interface Attachment { name: string; size: number; text: string }
+/** A file waiting to be sent. The gateway reads it as an untrusted client document (a PDF is read on the server). */
+interface Attachment { name: string; size: number; text: string; pdfBase64?: string }
 
 const MAX_BYTES = 200 * 1024;
+const PDF_MAX_BYTES = 5 * 1024 * 1024;
 const TEXT_EXT = /\.(txt|md|csv|json|eml|log|xml|html?)$/i;
+const isPdf = (file: File): boolean => /\.pdf$/i.test(file.name) || file.type === "application/pdf";
 
 interface Item { id: number; text: string; attachment: Attachment | null; result: ChatResult }
 
 const kb = (n: number): string => (n < 1024 ? `${n} B` : `${(n / 1024).toFixed(n < 10240 ? 1 : 0)} KB`);
 
-/** Reads a text file in the browser. Rejects anything this demo cannot read as text, with a message that says what to do. */
+function readAs<T>(file: File, how: "text" | "bytes"): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as T);
+    r.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+    if (how === "text") r.readAsText(file); else r.readAsArrayBuffer(file);
+  });
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+/** Reads a client file in the browser. Rejects anything this demo cannot send, with a message that says what to do. */
 export async function readAttachment(file: File): Promise<Attachment> {
+  if (isPdf(file)) {
+    if (file.size > PDF_MAX_BYTES) throw new Error(`${file.name} is ${kb(file.size)}. The limit for a PDF is ${kb(PDF_MAX_BYTES)}.`);
+    const bytes = new Uint8Array(await readAs<ArrayBuffer>(file, "bytes"));
+    if (String.fromCharCode(...bytes.subarray(0, 5)) !== "%PDF-") throw new Error(`${file.name} is not a PDF file.`);
+    return { name: file.name, size: file.size, text: "", pdfBase64: toBase64(bytes) };
+  }
   if (!TEXT_EXT.test(file.name) && !file.type.startsWith("text/")) {
-    throw new Error(`${file.name} is not a text file. This demo reads .txt, .md, .csv, .json, .eml and .log files. Paste the text into a .txt file to test a PDF.`);
+    throw new Error(`${file.name} is not a text or PDF file. This demo reads .pdf, .txt, .md, .csv, .json, .eml and .log files.`);
   }
   if (file.size > MAX_BYTES) throw new Error(`${file.name} is ${kb(file.size)}. The limit is ${kb(MAX_BYTES)}.`);
-  const text = await new Promise<string>((resolve, reject) => {
-    const r = new FileReader();
-    r.onload = () => resolve(String(r.result ?? ""));
-    r.onerror = () => reject(new Error(`Could not read ${file.name}.`));
-    r.readAsText(file);
-  });
+  const text = String((await readAs<string>(file, "text")) ?? "");
   if (!text.trim()) throw new Error(`${file.name} is empty.`);
   return { name: file.name, size: file.size, text };
 }
@@ -57,6 +76,8 @@ function Verdict({ item, onOpenSession }: { item: Item; onOpenSession?: (id: str
   if (r.code) facts.push(["Code", r.code]);
   if (r.owasp.length > 0) facts.push(["OWASP", r.owasp.join(", ")]);
   if (r.injection_score != null) facts.push(["Injection score", r.injection_score.toFixed(2)]);
+  const ai = pickAi(r.ai, r.rule);
+  if (ai) facts.push(["AI model", aiSummary(ai)]);
   if (r.data_class) facts.push(["Data class", r.data_class]);
   if (r.route) facts.push(["Route", `${r.route.type} · ${r.route.model} · router ${r.route.router}${r.route.rerouted_from ? ` (rerouted from ${r.route.rerouted_from})` : ""}`]);
   if (r.latency_ms != null) facts.push(["Time", fmtMs(r.latency_ms)]);
@@ -174,7 +195,10 @@ export function ChatPanel({ onOpenSession }: { onOpenSession?: (sessionId: strin
     setError(null);
     try {
       const result = attachment
-        ? await api.chat({ mode: "document", text: attachment.text, session_id: undefined }) // a file is a fresh client upload
+        ? await api.chat({ mode: "document", text: attachment.text, session_id: undefined, // a file is a fresh client upload
+            ...(attachment.pdfBase64
+              ? { file: { name: attachment.name, content_type: "application/pdf", content_base64: attachment.pdfBase64 } }
+              : {}) })
         : await api.chat({ mode: "prompt", text, session_id: sessionId });
       if (!attachment) setSessionId(result.session_id);
       setHistory((h) => [...h, { id: (h[h.length - 1]?.id ?? 0) + 1, text: attachment ? "" : text, attachment, result }]);
@@ -207,7 +231,7 @@ export function ChatPanel({ onOpenSession }: { onOpenSession?: (sessionId: strin
             <div className="me">
               {item.attachment && <FileChip file={item.attachment} />}
               {item.attachment
-                ? <span className="me-doc">{item.attachment.text.length > 240 ? `${item.attachment.text.slice(0, 240)}…` : item.attachment.text}</span>
+                ? <span className="me-doc">{item.attachment.pdfBase64 ? "PDF sent to the gateway to read." : item.attachment.text.length > 240 ? `${item.attachment.text.slice(0, 240)}…` : item.attachment.text}</span>
                 : (item.text.length > 600 ? `${item.text.slice(0, 600)}…` : item.text)}
             </div>
             <Verdict item={item} onOpenSession={onOpenSession} />
@@ -233,7 +257,7 @@ export function ChatPanel({ onOpenSession }: { onOpenSession?: (sessionId: strin
                     }} />
           <button className="send" disabled={!canSend} onClick={() => void send()}>{busy ? "Sending…" : "Send"}</button>
           <input ref={fileInput} type="file" className="sr-only" tabIndex={-1} aria-label="Choose a file"
-                 accept=".txt,.md,.csv,.json,.eml,.log,.xml,.html,text/*"
+                 accept=".pdf,application/pdf,.txt,.md,.csv,.json,.eml,.log,.xml,.html,text/*"
                  onChange={(e) => { void attach(e.target.files?.[0]); e.target.value = ""; }} />
         </div>
         {error && <p role="alert" className="state state-error">{error}</p>}

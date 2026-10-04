@@ -54,6 +54,16 @@ describe("ControlsPanel", () => {
     expect(screen.getByText(/^\{"blob":"x+…$/)).toBeInTheDocument();
     expect(container.querySelector("img")).toBeNull();
   });
+
+  it("names the decision model of an AI control and flags it when it is down", () => {
+    const c = fx.controls().map((row) => row.id === "sem.prompt_injection"
+      ? { ...row, model: "granite_guardian", model_status: "down" as const } : row);
+    render(<ControlsPanel controls={c} lastDiff={[]} />);
+    const row = screen.getAllByRole("row").find((r) => within(r).queryByText("sem.prompt_injection"))!;
+    expect(within(row).getByText("granite_guardian")).toBeInTheDocument();
+    expect(within(row).getByText("Down")).toHaveClass("badge-red");
+    expect(within(row).getByText("AI")).toBeInTheDocument();
+  });
 });
 
 describe("PolicyGlance", () => {

@@ -171,12 +171,12 @@ export function createMock({ now = () => Date.now() } = {}) {
   // ---- chat -------------------------------------------------------------------------------------
   const chat = (body) => {
     state.chats += 1;
-    const text = String(body.text ?? ""), low = text.toLowerCase();
+    const text = String(body.text ?? ""), low = `${text} ${body.file?.name ?? ""}`.toLowerCase();
     const sid = body.session_id || `chat-${100 + state.chats}`;
     const base = { session_id: sid, rule: null, layer: null, code: null, owasp: [], data_class: "public", injection_score: 0.03, reply: null, approval_id: null, message: "", steps: [],
       route: { type: "local", model: "qwen2.5:7b", router: "rule_based", rerouted_from: null }, latency_ms: 40 };
     if (body.mode === "document") {
-      const poisoned = low.includes("skip sanctions") || low.includes("ignore");
+      const poisoned = low.includes("skip sanctions") || low.includes("ignore") || low.includes("injected");
       const steps = [{ n: 1, tool: "read_document", args: {}, outcome: "ALLOW", code: null, approval_id: null }];
       if (poisoned) {
         steps.push({ n: 2, tool: "entities_submit", args: {}, outcome: "BLOCK", code: "TOOL_ORDER", approval_id: null },

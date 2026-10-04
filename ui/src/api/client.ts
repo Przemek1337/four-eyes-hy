@@ -49,7 +49,8 @@ export const api = {
   signatures: () => request<SignaturesT>("/admin/signatures"),
   timeseries: (window = "24h") => request<TimeseriesT>(`/admin/timeseries${qs({ window })}`),
   tests: () => request<TestsT>("/admin/tests"),
-  chat: (body: { mode: "prompt" | "document"; text: string; session_id?: string; model?: string }) =>
+  chat: (body: { mode: "prompt" | "document"; text: string; session_id?: string; model?: string;
+                 file?: { name: string; content_type: string; content_base64: string } }) =>
     request<ChatResult>("/admin/chat", { method: "POST", body: JSON.stringify(body) }),
 };
 

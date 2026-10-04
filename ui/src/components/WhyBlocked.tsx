@@ -1,4 +1,5 @@
 import type { ApprovalT, AuditEvent, JudgeInfo } from "../api/types";
+import { aiSummary, pickAi } from "../aiInfo";
 import { Badge } from "./Badge";
 
 /** Why a step was allowed, stopped or held. Rendered inside the selected timeline step. */
@@ -16,6 +17,7 @@ export function WhyBlocked({ event, approval }: { event: AuditEvent | null; appr
   const alertScore = (event.alerts ?? []).map((a) => a.score).find((x): x is number => typeof x === "number");
   const detailScore = typeof event.detail?.score === "number" ? (event.detail.score as number) : undefined;
   const score = event.injection_score ?? detailScore ?? alertScore;
+  const ai = pickAi(event.ai, event.rule);
   const owasp = [...new Set([...(event.owasp ?? []), ...(event.alerts ?? []).flatMap((a) => (Array.isArray(a.owasp) ? (a.owasp as string[]) : []))])];
   return (
     <section className="why" role="region" aria-label="Why this decision">
@@ -34,6 +36,7 @@ export function WhyBlocked({ event, approval }: { event: AuditEvent | null; appr
           <><dt>Signature</dt><dd><code>{event.signature_id}</code>{reference ? <div className="muted">{reference}</div> : null}</dd></>
         )}
         {typeof score === "number" && <><dt>Detector score</dt><dd>{score.toFixed(2)}</dd></>}
+        {ai && <><dt>AI model</dt><dd>{aiSummary(ai)}</dd></>}
         {needsJudge && (
           <><dt>AI judge</dt><dd>{judge ? `${judge.consistent ? "consistent" : "inconsistent"} with the task (${judge.score.toFixed(2)}): ${judge.reason}` : "not run"}</dd></>
         )}
