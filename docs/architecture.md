@@ -60,3 +60,7 @@ Zasada niezmienna: kontrole AI mogą tylko zaostrzyć decyzję deterministyczną
 ## Dodawanie przypadku użycia
 
 Dodaj do `policy.yaml` agenta, jego narzędzia z tagami, jego źródła z klasami, limity i profil. Zmiany w kodzie nie są potrzebne. Pokazuje to `tests/test_generality.py` (agent płatności zdefiniowany wyłącznie w YAML).
+
+## Korpus syntetyczny i macierz ataków
+
+Testy na danych syntetycznych (generatory z seedem, 17 technik ukrywania instrukcji, macierz OWASP, korpus benign, testy własności) opisuje `docs/attack-corpus.md`. Raport z `make test` zawiera blok `corpus` (skuteczność, false blocks, znane luki), który pokazuje dashboard.

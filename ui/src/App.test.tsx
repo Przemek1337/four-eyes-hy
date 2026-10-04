@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import App from "./App";
 
@@ -34,7 +34,8 @@ describe("App shell", () => {
 
   it("shows the name next to the four dots, and the dots are decoration only", () => {
     const { container } = render(<App />);
-    expect(screen.getByText("FourEyes")).toBeInTheDocument();
+    const side = container.querySelector(".side") as HTMLElement;
+    expect(within(side).getByText("FourEyes")).toBeInTheDocument();
     expect(container.querySelector(".eyes")).toHaveAttribute("aria-hidden", "true");
     expect(container.querySelectorAll(".eyes i")).toHaveLength(4);
   });

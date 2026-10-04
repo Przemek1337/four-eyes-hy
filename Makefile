@@ -1,5 +1,5 @@
 PYTHON ?= python3
-.PHONY: install test run bench ui smoke demo-docs demo calibrate-note eval-models
+.PHONY: install test run bench ui smoke demo-docs demo calibrate-note eval-models demo-traffic
 install:
 	$(PYTHON) -m pip install -e '.[dev,harness]'
 test:
@@ -20,3 +20,5 @@ calibrate-note:
 	$(PYTHON) -m harness.demo_documents.calibrate_borderline_note
 eval-models:
 	$(PYTHON) -m harness.demo_scenarios.evaluate_decision_models
+demo-traffic:
+	$(PYTHON) scripts/demo_traffic.py

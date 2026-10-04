@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import fnmatch
 import hashlib
 import json
 import re
@@ -7,8 +8,9 @@ from pathlib import Path
 
 from foureyes.core.control import Control, register
 from foureyes.core.types import Verdict
-from foureyes.signatures.matchers import (has_unicode_smuggling, hidden_text, host_of, scan_pickle_bytes,
-                                          urls_in)
+from foureyes.detect.normalize import variants
+from foureyes.signatures.matchers import (content_matches_format, has_unicode_smuggling, hidden_text, host_of,
+                                          looks_like_pickle, scan_pickle_bytes, urls_in)
 
 DEFAULT_SCAN = ("pkl", "pt", "bin")
 
@@ -26,10 +28,13 @@ class SigFeedControl(Control):
 
     def _text_hit(self, feed, text: str):
         for sig in feed.by_type("prompt_pattern"):
-            for pat in sig.get("match", []):
-                m = re.search(pat, text)
-                if m:
-                    return sig, f"prompt matches known jailbreak pattern {sig['id']}", {"evidence": m.group(0)[:200]}
+            for reading in variants(text):  # the same phrase hidden by look-alikes, spacing, base64, ROT13...
+                for pat in sig.get("match", []):
+                    m = re.search(pat, reading)
+                    if m:
+                        how = "" if reading is text else " (after undoing obfuscation)"
+                        return (sig, f"prompt matches known jailbreak pattern {sig['id']}{how}",
+                                {"evidence": m.group(0)[:200]})
         for sig in feed.by_type("unicode_smuggling"):
             if has_unicode_smuggling(text):
                 return sig, "invisible Unicode characters hide text", {"evidence": hidden_text(text)[:200] or "zero-width characters"}
@@ -97,14 +102,17 @@ class SigFeedControl(Control):
             scan_formats = tuple(sig.get("scan_formats", DEFAULT_SCAN))
             if ext not in sig.get("allowed_formats", []) and ext not in scan_formats:
                 return self._block(sig, f"model format .{ext} is not allowed", "MODEL_FORMAT_NOT_ALLOWED")
-        if ext in scan_formats:
+        if not content_matches_format(ext, data):
+            return Verdict.block(self.id, f"file content does not match its .{ext} extension", code="MODEL_FORMAT_MISMATCH",
+                                 owasp=("LLM04:2026", "ASI04"), detail={"extension": ext})
+        if ext in scan_formats or looks_like_pickle(data):  # a pickle is scanned whatever its file name claims
             try:
                 found = set(scan_pickle_bytes(data))
             except Exception as exc:
                 return Verdict.block(self.id, f"artifact could not be scanned: {exc}", code="ARTIFACT_UNPARSEABLE",
                                      owasp=("LLM04:2026", "ASI04"))
             for sig in feed.by_type("pickle_opcode"):
-                bad = found & set(sig.get("match", []))
+                bad = {f for f in found if any(fnmatch.fnmatchcase(f, pat) for pat in sig.get("match", []))}
                 if bad:
                     return self._block(sig, f"pickle imports dangerous callables: {', '.join(sorted(bad))}",
                                        "MALICIOUS_PICKLE", opcodes=sorted(bad))

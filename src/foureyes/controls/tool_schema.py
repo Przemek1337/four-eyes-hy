@@ -1,3 +1,5 @@
+import re
+
 from jsonschema import Draft202012Validator
 
 from foureyes.core.control import Control, register
@@ -12,6 +14,21 @@ def _field_of(error) -> str:
     return "*"
 
 
+def _key(name) -> str:
+    """Field names compared the way a backend might read them: case, underscores and hyphens ignored."""
+    return re.sub(r"[^a-z0-9]", "", str(name).lower())
+
+
+def _all_keys(obj):
+    if isinstance(obj, dict):
+        for k, v in obj.items():
+            yield k
+            yield from _all_keys(v)
+    elif isinstance(obj, list):
+        for v in obj:
+            yield from _all_keys(v)
+
+
 @register
 class ToolSchemaControl(Control):
     id = "authz.tool_schema"
@@ -22,8 +39,9 @@ class ToolSchemaControl(Control):
         if req.kind != "tool":
             return None
         cfg = ctx.policy.tools.get(req.tool, {})
+        present = {_key(k) for k in _all_keys(req.args)}  # case_status, Case-Status, caseStatus, nested ones too
         for name in cfg.get("cannot_change", []):
-            if name in req.args:
+            if _key(name) in present:
                 return Verdict.block(self.id, f"field {name!r} cannot be changed through {req.tool}",
                                      code="FIELD_IMMUTABLE", owasp=("LLM05:2026",))
         schema = ctx.policy.tool_schema(req.tool)
