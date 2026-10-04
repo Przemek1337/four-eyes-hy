@@ -143,25 +143,25 @@ describe("the sidebar and the app", () => {
     expect(document.querySelector(".side-foot .live")).not.toBeNull();
   });
 
-  it("sends someone with no sessions to Chat", async () => {
+  it("sends someone with no sessions to the Playground", async () => {
     vi.stubGlobal("fetch", (url: string) => Promise.resolve(new Response(JSON.stringify(String(url).startsWith("/admin/sessions") ? { sessions: [] } : { approvals: [] }), { status: 200 })));
     render(<App />);
     expect(await screen.findByText("No sessions yet")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Open Chat" }));
-    expect(screen.getByRole("tab", { name: "Chat" })).toHaveAttribute("aria-selected", "true");
+    await userEvent.click(screen.getByRole("button", { name: "Open Playground" }));
+    expect(screen.getByRole("tab", { name: "Playground" })).toHaveAttribute("aria-selected", "true");
   });
 });
 
 describe("empty sessions list", () => {
   const noop = () => {};
   it("tells a new user what to do, with a way to Chat when there is one", async () => {
-    const onOpenChat = vi.fn();
-    const { rerender } = render(<SessionList rows={[]} onSelect={noop} filters={{}} onFilters={noop} onOpenChat={onOpenChat} />);
+    const onOpenPlayground = vi.fn();
+    const { rerender } = render(<SessionList rows={[]} onSelect={noop} filters={{}} onFilters={noop} onOpenPlayground={onOpenPlayground} />);
     expect(screen.getByText("No sessions yet")).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("button", { name: "Open Chat" }));
-    expect(onOpenChat).toHaveBeenCalled();
+    await userEvent.click(screen.getByRole("button", { name: "Open Playground" }));
+    expect(onOpenPlayground).toHaveBeenCalled();
     rerender(<SessionList rows={[]} onSelect={noop} filters={{}} onFilters={noop} />);
-    expect(screen.queryByRole("button", { name: "Open Chat" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Open Playground" })).not.toBeInTheDocument();
   });
 
   it("explains an empty result of filters and clears them", async () => {

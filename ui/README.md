@@ -49,7 +49,7 @@ Controls page: **http://127.0.0.1:8080/__mock/** (also reachable through the dev
 | Gateway down | every request fails with 503: errors with Retry, then the offline banner |
 | Reset | back to the start, forgetting decisions and chats |
 
-Deciding the pending approval, sending a chat message and flipping a switch also push an event on `/admin/stream`, so the sidebar shows **Live** and panels refresh without waiting for the next poll.
+Deciding the pending approval, sending a Playground message and flipping a switch also push an event on `/admin/stream`, so the sidebar shows **Live** and panels refresh without waiting for the next poll.
 A test keeps the mock in step with the API client: every path the client calls must have a mock route.
 
 The real data contract is in `../docs/superpowers/plans/2026-10-03-foureyes-backend.md` (Task 14). When the gateway disagrees with `src/api/types.ts`, the types are what to fix.

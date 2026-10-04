@@ -20,7 +20,7 @@ describe("App shell", () => {
     render(<App />);
     expect(screen.getByRole("tab", { name: "Security" })).toHaveAttribute("aria-selected", "true");
     expect(screen.getByRole("tab", { name: "Management" })).toHaveAttribute("aria-selected", "false");
-    expect(screen.getByRole("tab", { name: "Chat" })).toBeInTheDocument();
+    expect(screen.getByRole("tab", { name: "Playground" })).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Security view" })).toBeInTheDocument();
   });
 
@@ -28,8 +28,8 @@ describe("App shell", () => {
     render(<App />);
     await userEvent.click(screen.getByRole("tab", { name: "Management" }));
     expect(screen.getByRole("region", { name: "Management view" })).toBeInTheDocument();
-    await userEvent.click(screen.getByRole("tab", { name: "Chat" }));
-    expect(screen.getByRole("region", { name: "Chat view" })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: "Playground" }));
+    expect(screen.getByRole("region", { name: "Playground view" })).toBeInTheDocument();
   });
 
   it("shows the name next to the four dots, and the dots are decoration only", () => {
@@ -60,7 +60,7 @@ describe("App shell", () => {
       return json({ approvals: [] });
     });
     render(<App />);
-    await userEvent.click(screen.getByRole("tab", { name: "Chat" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Playground" }));
     await userEvent.upload(screen.getByLabelText("Choose a file"), new File(["Client file"], "client.txt", { type: "text/plain" }));
     await userEvent.click(await screen.findByRole("button", { name: "Send" }));
     await userEvent.click(await screen.findByRole("button", { name: "Open this session in Security" }));

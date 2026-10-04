@@ -192,7 +192,7 @@ export function ChatPanel({ onOpenSession }: { onOpenSession?: (sessionId: strin
   return (
     <div className="chatwrap">
       <p className="page-sub">
-        Type anything, or drop a file in. The same policy applies as for every agent. A file is sent as an untrusted client upload.
+        Try the gateway. Your messages go through the same policy as a real agent. Type anything, or drop a client file in: a file is sent as an untrusted client upload.
       </p>
       {sessionId && (
         <p className="chat-session">

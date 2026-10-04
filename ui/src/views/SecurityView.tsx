@@ -7,7 +7,7 @@ import { SessionDetail } from "../components/SessionDetail";
 import { SessionList } from "../components/SessionList";
 import { usePolling } from "../hooks/usePolling";
 
-export function SecurityView({ initialSessionId = null, onOpenChat }: { initialSessionId?: string | null; onOpenChat?: () => void }) {
+export function SecurityView({ initialSessionId = null, onOpenPlayground }: { initialSessionId?: string | null; onOpenPlayground?: () => void }) {
   const [filters, setFilters] = useState<SessionFilters>({});
   const [selected, setSelected] = useState<string | null>(initialSessionId);
   const [exporting, setExporting] = useState(false);
@@ -39,7 +39,7 @@ export function SecurityView({ initialSessionId = null, onOpenChat }: { initialS
         onSelect={setSelected}
         filters={filters}
         onFilters={setFilters}
-        onOpenChat={onOpenChat}
+        onOpenPlayground={onOpenPlayground}
         actions={<button className="btn-sm" onClick={() => setExporting(true)}>Export audit log</button>}
       />
       <ExportDialog open={exporting} onClose={() => setExporting(false)} />
