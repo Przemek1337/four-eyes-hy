@@ -23,6 +23,7 @@ where = ["src"]
 
 [tool.setuptools.package-data]
 foureyes = ["ui_dist/**/*"]
+harness = ["demo_documents/**/*"]
 
 [tool.pytest.ini_options]
 pythonpath = ["src", "tests"]
