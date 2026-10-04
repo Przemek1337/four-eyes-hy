@@ -27,7 +27,12 @@ export function ControlsPanel({ controls, lastDiff }: { controls: ControlRow[]; 
             {controls.map((c) => (
               <tr key={c.id} className={c.status === "REMOVED" ? "removed" : undefined}>
                 <td><code className={c.status === "REMOVED" ? "struck" : undefined}>{c.id}</code><div className="muted">{c.description}</div></td>
-                <td>{c.type === "ai" ? "AI" : "Rule"}</td>
+                <td>
+                  <span>{c.type === "ai" ? "AI" : "Rule"}</span>
+                  {c.model && (
+                    <div className="muted"><code>{c.model}</code>{c.model_status === "down" && <> <Badge tone="red">Down</Badge></>}</div>
+                  )}
+                </td>
                 <td>
                   {c.status === "REMOVED" ? <span className="muted">removed</span> : (
                     <>

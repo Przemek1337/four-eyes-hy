@@ -153,6 +153,14 @@ describe("WhyBlocked", () => {
     rerender(<WhyBlocked event={fx.decision({ decision: "BLOCK", detail: { evidence: "<img src=x onerror=alert(1)>" } })} />);
     expect(container.querySelector("img")).toBeNull();
   });
+  it("shows the AI model, rule and confidence behind an AI decision", () => {
+    const ev = fx.decision({ decision: "BLOCK", rule: "sem.prompt_injection", layer: "ai",
+      ai: { "sem.prompt_injection": { model: "granite_guardian", model_version: "g", rule: "fake_authority", probability: 0.97,
+        confidence: 0.97, score: 0.97, chunks: 1, latency_ms: 41, uncertain: false } } });
+    render(<WhyBlocked event={ev} />);
+    expect(screen.getByText("AI model")).toBeInTheDocument();
+    expect(screen.getByText("granite_guardian · fake_authority · p 0.97 · confidence 0.97")).toBeInTheDocument();
+  });
 });
 
 describe("FlowMap", () => {

@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { aiSummary, pickAi } from "../aiInfo";
 import { api } from "../api/client";
 import type { ChatResult } from "../api/types";
 import { fmtMs } from "../format";
@@ -75,6 +76,8 @@ function Verdict({ item, onOpenSession }: { item: Item; onOpenSession?: (id: str
   if (r.code) facts.push(["Code", r.code]);
   if (r.owasp.length > 0) facts.push(["OWASP", r.owasp.join(", ")]);
   if (r.injection_score != null) facts.push(["Injection score", r.injection_score.toFixed(2)]);
+  const ai = pickAi(r.ai, r.rule);
+  if (ai) facts.push(["AI model", aiSummary(ai)]);
   if (r.data_class) facts.push(["Data class", r.data_class]);
   if (r.route) facts.push(["Route", `${r.route.type} · ${r.route.model} · router ${r.route.router}${r.route.rerouted_from ? ` (rerouted from ${r.route.rerouted_from})` : ""}`]);
   if (r.latency_ms != null) facts.push(["Time", fmtMs(r.latency_ms)]);

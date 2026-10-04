@@ -60,7 +60,20 @@ export interface RouteInfo {
   fallback: boolean;
 }
 
+export interface AiInfo {
+  model: string;
+  model_version: string;
+  rule: string | null;
+  probability: number;
+  confidence: number;
+  score: number;
+  chunks: number;
+  latency_ms: number;
+  uncertain: boolean;
+}
+
 export interface AuditEvent {
+  ai?: Record<string, AiInfo> | null;
   event: string;
   ts: string;
   session_id: string;
@@ -146,6 +159,8 @@ export interface ControlRow {
   hits_1h: number;
   p95_ms: number;
   weight: number;
+  model?: string | null;
+  model_status?: "up" | "down" | null;
 }
 
 export interface PostureT {
@@ -201,6 +216,7 @@ export interface TestsT {
 }
 
 export interface ChatResult {
+  ai?: Record<string, AiInfo> | null;
   session_id: string;
   decision: Decision;
   rule: string | null;
