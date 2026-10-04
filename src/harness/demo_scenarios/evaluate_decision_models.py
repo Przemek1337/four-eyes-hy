@@ -12,7 +12,7 @@ from foureyes.policy.snapshot import PolicySnapshot
 from foureyes.semantic.decision_model_action_judge import DecisionModelActionJudge
 from foureyes.semantic.decision_model_client import UncertainDecision
 from foureyes.semantic.decision_model_registry import DecisionModelRegistry
-from foureyes.semantic.decision_model_types import TYPE_CAPABILITIES
+from foureyes.semantic.decision_model_types import TYPE_CAPABILITIES, model_refs
 from foureyes.semantic.rule_based_injection_scorer import assess_injection
 from harness.demo_documents import DEMO_DOCUMENTS_DIR
 
@@ -20,8 +20,10 @@ CHECK_CAPABILITY = {"injection": "yes_no", "data_class": "choice", "action": "ch
 
 
 def _models_for(snapshot, capability: str) -> list[str]:
+    active = set(model_refs(snapshot.controls).values())
     return [name for name, cfg in snapshot.decision_models().items()
-            if cfg["type"] != "mock" and cfg.get("location") == "local" and capability in TYPE_CAPABILITIES[cfg["type"]]]
+            if name in active and cfg["type"] != "mock" and cfg.get("location") == "local"
+            and capability in TYPE_CAPABILITIES[cfg["type"]]]
 
 
 def _predict(check: str, client, name: str, item: dict, snapshot) -> tuple[str, float, bool]:

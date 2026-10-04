@@ -72,7 +72,7 @@ def test_prompt_above_threshold_is_blocked_with_the_ai_detail():
     ctx = ctx_for(HIDDEN, MockDecisionClient(yes_patterns=KYC_PHRASES))
     v = control(ctx).evaluate(ctx, "pre")
     assert v.outcome is Outcome.BLOCK and v.code == "PROMPT_INJECTION" and v.layer == "ai"
-    assert v.detail["ai"]["model"] == "granite_guardian" and v.detail["ai"]["rule"]
+    assert v.detail["ai"]["model"] == "basal" and v.detail["ai"]["rule"]
     assert ctx.notes["ai"]["sem.prompt_injection"]["score"] >= 0.8
 
 
@@ -92,11 +92,12 @@ def test_uncertain_document_flags_the_session_high_risk():
 
 
 def test_builtin_rule_is_skipped_for_models_without_it():
+    conf = {**CONF, "rules": {**CONF["rules"], "jailbreak": "builtin"}}
     client = RuleAware("nothing", 0.0, builtin=False)
-    assess_injection(client, "basal", "hello", CONF)
+    assess_injection(client, "basal", "hello", conf)
     assert len(client.asked) == 3  # override_instructions, redirect_data, fake_authority; jailbreak skipped
     with_builtin = RuleAware("nothing", 0.0)
-    assess_injection(with_builtin, "granite_guardian", "hello", CONF)
+    assess_injection(with_builtin, "granite_guardian", "hello", conf)
     assert len(with_builtin.asked) == 4
 
 
@@ -125,9 +126,9 @@ def test_live_switch_shows_the_new_model_in_the_audit(tmp_path):
     gw = make_gateway(tmp_path, decision_models=DecisionModelRegistry(
         override=MockDecisionClient(yes_patterns=KYC_PHRASES)))
     chat(gw, HIDDEN, session="a")
-    raw = policy_with({"controls": {"sem.prompt_injection": {"model": "basal"}}})
+    raw = policy_with({"controls": {"sem.prompt_injection": {"model": "granite_guardian"}}})
     gw.policy_path.write_text(yaml.safe_dump(raw) + "\n# switched\n")
     chat(gw, HIDDEN, session="b")
     models = [e["ai"]["sem.prompt_injection"]["model"] for e in gw.services.audit.events()
               if (e.get("ai") or {}).get("sem.prompt_injection")]
-    assert models == ["granite_guardian", "basal"]
+    assert models == ["basal", "granite_guardian"]

@@ -22,7 +22,7 @@ def test_admin_controls_name_the_model_and_its_state(tmp_path):
     reg = DecisionModelRegistry(factories={"granite_guardian": lambda cfg: MockDecisionClient(fail=True),
                                            "basal": lambda cfg: MockDecisionClient()})
     rows = {r["id"]: r for r in make_gateway(tmp_path, decision_models=reg).client.get("/admin/controls").json()["controls"]}
-    assert (rows["sem.prompt_injection"]["model"], rows["sem.prompt_injection"]["model_status"]) == ("granite_guardian", "down")
+    assert (rows["sem.prompt_injection"]["model"], rows["sem.prompt_injection"]["model_status"]) == ("basal", "up")
     assert (rows["sem.action_judge"]["model"], rows["sem.action_judge"]["model_status"]) == ("basal", "up")
     assert rows["auth.agent_key"]["model"] is None and rows["auth.agent_key"]["model_status"] is None
 

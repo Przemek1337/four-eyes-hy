@@ -7,11 +7,12 @@ from foureyes.semantic.decision_model_types import model_refs
 from helpers import policy_with, snapshot
 
 
-def test_shipped_policy_names_granite_for_injection_and_basal_for_the_rest():
+def test_shipped_policy_uses_one_local_basal_for_all_three_controls():
     snap = snapshot()
-    assert model_refs(snap.controls) == {"data.classify_net": "basal", "sem.prompt_injection": "granite_guardian",
+    assert model_refs(snap.controls) == {"data.classify_net": "basal", "sem.prompt_injection": "basal",
                                          "sem.action_judge": "basal"}
-    assert snap.decision_model_cfg("granite_guardian")["location"] == "local"
+    assert snap.decision_model_cfg("basal")["location"] == "local"
+    assert snap.decision_model_cfg("basal")["model"] == "basal-1.0-1.5B"
     assert snap.decision_model_cfg("mock")["type"] == "mock"
     assert snap.decision_model_cfg("jev")["location"] == "external"
     assert snap.warnings == []
@@ -49,7 +50,7 @@ def test_legacy_names_are_still_accepted():
 
 
 def test_builtin_rule_on_basal_is_a_warning_not_an_error():
-    snap = snapshot({"controls": {"sem.prompt_injection": {"model": "basal"}}})
+    snap = snapshot({"controls": {"sem.prompt_injection": {"model": "basal", "rules": {"jailbreak": "builtin"}}}})
     assert snap.warnings == ["rule.skipped: sem.prompt_injection rule 'jailbreak' is not built into basal"]
 
 
@@ -58,7 +59,7 @@ def test_reload_event_carries_the_warnings(tmp_path):
     path.write_text(yaml.safe_dump(policy_with()))
     events = []
     store = PolicyStore(path, on_event=events.append, base_dir=tmp_path)
-    raw = policy_with({"controls": {"sem.prompt_injection": {"model": "basal"}}})
+    raw = policy_with({"controls": {"sem.prompt_injection": {"model": "basal", "rules": {"jailbreak": "builtin"}}}})
     path.write_text(yaml.safe_dump(raw) + "\n# changed\n")
     assert store.reload_if_changed() is True
     reloaded = next(e for e in events if e["event"] == "policy.reloaded")
@@ -68,7 +69,8 @@ def test_reload_event_carries_the_warnings(tmp_path):
 
 def test_initial_load_carries_the_warnings(tmp_path):
     path = tmp_path / "policy.yaml"
-    path.write_text(yaml.safe_dump(policy_with({"controls": {"sem.prompt_injection": {"model": "basal"}}})))
+    path.write_text(yaml.safe_dump(policy_with({"controls": {"sem.prompt_injection": {
+        "model": "basal", "rules": {"jailbreak": "builtin"}}}})))
     store = PolicyStore(path, on_event=lambda e: None, base_dir=tmp_path)
     loaded = store.history[0]
     assert loaded["event"] == "policy.loaded" and "jailbreak" in loaded["warnings"][0]

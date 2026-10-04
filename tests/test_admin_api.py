@@ -156,4 +156,4 @@ def test_metrics_decision_models_from_a_real_request(tmp_path):
     assert g.client.get("/metrics").json()["decision_models"] == {}
     chat(g, "hello", "dm-real")
     models = g.client.get("/metrics").json()["decision_models"]
-    assert models["granite_guardian"]["n"] >= 1 and models["granite_guardian"]["p95_ms"] >= 0
+    assert models["basal"]["n"] >= 1 and models["basal"]["p95_ms"] >= 0

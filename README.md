@@ -14,13 +14,24 @@ Three AI controls ask narrow questions of local decision models named in `policy
 
 | Control | Model | Question |
 |---|---|---|
-| `sem.prompt_injection` | Granite Guardian 4.1 8B (vLLM) | one yes/no question per named rule; score = highest P(yes) |
-| `data.classify_net` | Basal-1.0 4.5B | which data class (public / personal_data / bank_secret); can only raise the class |
-| `sem.action_judge` | Basal-1.0 4.5B | consistent / out_of_scope, from the task and the REAL call parameters only |
+| `sem.prompt_injection` | Basal-1.0 1.5B | one yes/no question per named rule; score = highest P(yes) |
+| `data.classify_net` | Basal-1.0 1.5B | which data class (public / personal_data / bank_secret); can only raise the class |
+| `sem.action_judge` | Basal-1.0 1.5B | consistent / out_of_scope, from the task and the REAL call parameters only |
 
 An unconfident answer (`confidence < min_confidence`) always goes to the stricter side. A content-reading control can never use an `external` model (the policy is rejected). Switch a model live by editing `model:` in `policy.yaml`.
 
-Run the models (NVIDIA GPU): `vllm serve ibm-granite/granite-guardian-4.1-8b --port 8001` and the Basal server on port 8000. The live spike that verifies the exact prompt strings against running servers has not been run yet (Task 0 is pending), so the Granite Guardian prompt constants are taken from the model card and are unverified. Without the models, `MODEL=mock make run` uses a deterministic mock.
+The MVP uses one local Basal 1.5B server for all three controls. Build and start it on an NVIDIA GPU:
+
+```sh
+docker build -t foureyes-basal:1.0.1 -f scripts/models/Dockerfile.basal scripts/models
+docker run -d --name foureyes-basal --gpus all -p 127.0.0.1:8000:8000 -v foureyes-basal-cache:/models foureyes-basal:1.0.1
+```
+
+The first start downloads the model. BF16 with `eager` avoids FP8 compilation and graph warmup on the laptop's Ada GPU. Run the scripted agent with real decision models using `MODEL=mock DECISION_MODELS=live make run`; `MODEL=mock make run` uses deterministic mocks throughout. In a Docker gateway set `BASAL_URL=http://host.docker.internal:8000`. The decision timeout is 10 seconds for this laptop MVP. `make eval-models` evaluates only models used by active controls.
+
+The [live spike results](docs/superpowers/notes/2026-10-04-decision-models-spike.md) record 4/5 passing demo scenarios: the clean document is also marked high risk because the 1.5B model is uncertain. Keep this limitation visible when presenting the MVP.
+
+Granite Guardian remains an optional adapter and policy entry; the MVP does not start or contact it. To try it later, run its server on port 8001 and set `sem.prompt_injection.model: granite_guardian`. Its live prompt/logprobs verification is still pending.
 
 Demo: `make demo-docs` (PDFs), `make calibrate-note` (borderline note on the live model), `MODEL=mock make run` or `make run`, then `make demo`. Drop a PDF into the Playground (`/admin/chat`, document mode) to send it through the gateway as a client document. `make eval-models` writes `reports/decision_models_eval.json` (accuracy per model, check and language; p50/p95 latency).
 

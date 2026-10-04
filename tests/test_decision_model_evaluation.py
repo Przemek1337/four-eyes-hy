@@ -10,6 +10,16 @@ from helpers import snapshot
 ITEMS = json.loads((DEMO_DOCUMENTS_DIR / "eval_set.json").read_text(encoding="utf-8"))
 
 
+def test_default_evaluation_uses_only_the_active_mvp_model():
+    reg = DecisionModelRegistry(factories={
+        "basal": lambda cfg: MockDecisionClient(**MOCK_DECISION_RULES),
+        "granite_guardian": lambda cfg: (_ for _ in ()).throw(AssertionError("unused model contacted")),
+    })
+    report = evaluate(reg, snapshot(), ITEMS)
+    assert set(report) == {"basal"}
+    assert set(report["basal"]) == {"injection", "data_class", "action"}
+
+
 def test_each_model_is_evaluated_only_on_checks_it_can_answer():
     reg = DecisionModelRegistry(override=MockDecisionClient(**MOCK_DECISION_RULES))
     report = evaluate(reg, snapshot(), ITEMS, model_names=["granite_guardian", "basal"])

@@ -35,7 +35,9 @@ def test_health_covers_models_used_by_active_controls_only():
     up = MockDecisionClient()
     reg = DecisionModelRegistry(factories={"granite_guardian": lambda cfg: down, "basal": lambda cfg: up,
                                            "mock": lambda cfg: up})
-    assert reg.health(snapshot()) == {"granite_guardian": False, "basal": True}
+    assert reg.health(snapshot()) == {"basal": True}
+    assert reg.health(snapshot({"controls": {"sem.prompt_injection": {"model": "granite_guardian"}}})) == {
+        "granite_guardian": False, "basal": True}
     only_judge = snapshot(remove_controls=["sem.prompt_injection", "data.classify_net"])
     assert reg.health(only_judge) == {"basal": True}
     legacy = snapshot({"controls": {"sem.prompt_injection": {"model": "promptguard"}}})
@@ -55,12 +57,12 @@ def test_health_is_cached_for_the_ttl():
                                 health_ttl_s=5.0, clock=lambda: now[0])
     snap = snapshot()
     reg.health(snap)
-    assert Counting.probes == 2
+    assert Counting.probes == 1
     now[0] += 4.9
-    assert reg.health(snap) == {"granite_guardian": True, "basal": True} and Counting.probes == 2
+    assert reg.health(snap) == {"basal": True} and Counting.probes == 1
     now[0] += 0.2
     reg.health(snap)
-    assert Counting.probes == 4
+    assert Counting.probes == 2
 
 
 def test_posture_penalises_each_down_model():
@@ -75,7 +77,8 @@ def test_admin_posture_reports_a_down_model(tmp_path):
     reg = DecisionModelRegistry(factories={"granite_guardian": lambda cfg: MockDecisionClient(fail=True),
                                            "basal": lambda cfg: MockDecisionClient(),
                                            "mock": lambda cfg: MockDecisionClient()})
-    gw = make_gateway(tmp_path, decision_models=reg)
+    gw = make_gateway(tmp_path, overrides={"controls": {"sem.prompt_injection": {"model": "granite_guardian"}}},
+                      decision_models=reg)
     body = gw.client.get("/admin/posture").json()
     assert any(b["item"] == "AI model granite_guardian" for b in body["breakdown"])
 

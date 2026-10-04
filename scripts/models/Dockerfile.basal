@@ -1,0 +1,12 @@
+FROM pytorch/pytorch:2.8.0-cuda12.8-cudnn9-runtime
+
+# Basal does not use these packages; their preinstalled versions target the old torch.
+RUN pip uninstall -y torchvision torchaudio
+RUN pip install --no-cache-dir torch==2.11.0 --index-url https://download.pytorch.org/whl/cu128
+RUN pip install --no-cache-dir "basal @ https://github.com/rkinas/basal/archive/refs/tags/v1.0.1.tar.gz"
+
+ENV HF_HOME=/models
+EXPOSE 8000
+ENTRYPOINT ["basal-serve"]
+# BF16 avoids FP8 compilation on Ada GPUs; the single 1.5B model fits an 8 GB GPU.
+CMD ["--model", "Remek/basal-1.0-1.5B", "--mode", "eager", "--dtype", "bfloat16", "--host", "0.0.0.0", "--port", "8000"]
