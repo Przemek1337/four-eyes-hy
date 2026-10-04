@@ -1,5 +1,5 @@
 PYTHON ?= python3
-.PHONY: install test run bench ui smoke demo-docs
+.PHONY: install test run bench ui smoke demo-docs eval-models
 install:
 	$(PYTHON) -m pip install -e '.[dev,harness]'
 test:
@@ -14,3 +14,5 @@ smoke:
 	cd ui && node scripts/smoke.mjs
 demo-docs:
 	$(PYTHON) -m harness.demo_documents.generate_registry_extract_pdfs
+eval-models:
+	$(PYTHON) -m harness.demo_scenarios.evaluate_decision_models
