@@ -2,6 +2,8 @@
 
 FourEyes is a gateway for AI-agent traffic: every prompt, tool call and document passes through central, hot-reloadable policy (`policy.yaml`), deterministic and AI controls, budgets and an audit log.
 
+**Judges, start here:** [1-solution](1-solution/README.md) · [2-architecture](2-architecture/README.md) · [3-reporting](3-reporting/README.md) · [4-testing](4-testing/README.md) · [5-implementation](5-implementation/README.md)
+
 Quickstart: `make install && make test && MODEL=mock make run`, then open `http://127.0.0.1:8080/ui/`.
 
 ## Policy
