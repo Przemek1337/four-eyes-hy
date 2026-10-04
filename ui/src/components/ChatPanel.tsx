@@ -41,7 +41,7 @@ export async function readAttachment(file: File): Promise<Attachment> {
     return { name: file.name, size: file.size, text: "", pdfBase64: toBase64(bytes) };
   }
   if (!TEXT_EXT.test(file.name) && !file.type.startsWith("text/")) {
-    throw new Error(`${file.name} is not a text or PDF file. This demo reads .pdf, .txt, .md, .csv, .json, .eml and .log files.`);
+    throw new Error(`${file.name} is not a text or PDF file. Supported files: .pdf, .txt, .md, .csv, .json, .eml and .log.`);
   }
   if (file.size > MAX_BYTES) throw new Error(`${file.name} is ${kb(file.size)}. The limit is ${kb(MAX_BYTES)}.`);
   const text = String((await readAs<string>(file, "text")) ?? "");

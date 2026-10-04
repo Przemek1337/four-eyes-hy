@@ -84,7 +84,7 @@ export function ExportDialog({ open, onClose }: { open: boolean; onClose: () => 
               <label>To<input type="datetime-local" value={f.to} onChange={(e) => set({ to: e.target.value })} /></label>
             </>
           )}
-          <label>Session<input value={f.session} onChange={(e) => set({ session: e.target.value })} placeholder="sess_7f3a" /></label>
+          <label>Session<input value={f.session} onChange={(e) => set({ session: e.target.value })} placeholder="chat-1a2b3c4d" /></label>
           <label>Decision
             <select value={f.decision} onChange={(e) => set({ decision: e.target.value })}>
               {["", "ALLOW", "REDACT", "APPROVAL", "BLOCK"].map((d) => <option key={d} value={d}>{d || "All decisions"}</option>)}

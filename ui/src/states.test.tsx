@@ -151,7 +151,7 @@ describe("GatewayScreen", () => {
     render(<LiveProvider><GatewayScreen /><Probes /></LiveProvider>);
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("The gateway is not responding.");
-    expect(alert).toHaveTextContent("make run");
+    expect(alert).toHaveTextContent("Trying again every 5 seconds");
     const before = fetchSpy.mock.calls.length;
     await userEvent.click(screen.getByRole("button", { name: "Retry now" }));
     await waitFor(() => expect(fetchSpy.mock.calls.length).toBeGreaterThan(before));

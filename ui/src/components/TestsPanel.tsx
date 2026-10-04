@@ -75,7 +75,7 @@ export function TestsPanel({ tests }: { tests: TestsT }) {
     return (
       <section className="sec" aria-label="Test suite">
         <h2>Proof it works</h2>
-        <p className="state">No test report yet. Run <code>make test</code> to produce one.</p>
+        <p className="state">No test report yet.</p>
       </section>
     );
   }

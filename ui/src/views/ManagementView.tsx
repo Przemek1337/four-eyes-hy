@@ -61,7 +61,7 @@ export function ManagementView() {
     <section aria-label="Management view">
       <h1 className="page-title">Management</h1>
       <p className="page-sub">
-        Is the control layer working, is data safe, and what does it cost?{metrics.data ? ` Policy ${metrics.data.policy_version}.` : ""}
+        Is the control layer working, is data safe, and what does it cost?
       </p>
 
       {removed.length > 0 && (

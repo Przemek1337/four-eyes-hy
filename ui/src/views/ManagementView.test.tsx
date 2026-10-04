@@ -30,7 +30,7 @@ describe("ManagementView overview", () => {
     render(<ManagementView />);
     expect(await screen.findByRole("img", { name: "Security posture 100 out of 100" })).toBeInTheDocument();
     expect(screen.getByRole("group", { name: "Requests" })).toHaveTextContent("1,284");
-    expect(screen.getByText(/Policy v4\./)).toBeInTheDocument();
+    expect(screen.queryByText(/Policy v4\./)).not.toBeInTheDocument();
     expect(await screen.findByRole("list", { name: "Sections at a glance" })).toBeInTheDocument();
     expect(screen.getByRole("tab", { name: "Overview" })).toHaveAttribute("aria-selected", "true");
     expect(screen.queryByRole("heading", { name: "Threats stopped" })).not.toBeInTheDocument(); // one section at a time

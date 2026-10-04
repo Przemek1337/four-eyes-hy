@@ -148,10 +148,10 @@ describe("TestsPanel", () => {
     expect(screen.queryByLabelText("Synthetic corpus")).not.toBeInTheDocument();
   });
 
-  it("tells how to produce a report when there is none", () => {
+  it("says so when there is no report yet", () => {
     render(<TestsPanel tests={fx.tests({ ran_at: null, passed: 0, failed: 0, by_owasp: {} })} />);
     expect(screen.getByText(/No test report yet/)).toBeInTheDocument();
-    expect(screen.getByText("make test")).toBeInTheDocument();
+    expect(screen.queryByText("make test")).not.toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Missed attacks" })).not.toBeInTheDocument();
   });
 });

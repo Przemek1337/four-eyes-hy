@@ -21,7 +21,7 @@ export function GatewayScreen() {
       {offline ? (
         <div className="gw-text">
           <b>The gateway is not responding.</b>
-          <span>Is it running? Start it with <code>make run</code>. Trying again every 5 seconds.</span>
+          <span>Trying again every 5 seconds.</span>
           <button className="btn-sm" onClick={refreshNow}>Retry now</button>
         </div>
       ) : (

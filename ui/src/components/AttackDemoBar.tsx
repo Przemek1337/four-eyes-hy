@@ -45,7 +45,7 @@ export function AttackDemoBar({ pollMs = POLL_MS }: { pollMs?: number }) {
     <>Finished: {s.attacks_stopped} of {s.attacks} attacks stopped, {s.legit_passed} of {s.legit} normal requests passed.
       {s.unexpected.length > 0 && <span className="state-warn"> Unexpected: {s.unexpected.join("; ")}</span>}</>
   ) : unavailable ? (
-    "Needs the demo harness. Start the gateway with make run."
+    "The test attack is not available on this gateway."
   ) : (
     "Sends attacks and normal requests one at a time. Watch Security and Management change."
   );

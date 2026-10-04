@@ -42,7 +42,7 @@ describe("buildSummaries", () => {
 
   it("asks for a test report when there is none and flags missed attacks or false blocks", () => {
     expect(buildSummaries({ ...all(), tests: fx.tests({ ran_at: null }) }).proof)
-      .toEqual({ text: "No test report yet. Run make test.", attention: true });
+      .toEqual({ text: "No test report yet.", attention: true });
     expect(buildSummaries({ ...all(), tests: fx.tests({ missed_attacks: 1 }) }).proof?.attention).toBe(true);
     expect(buildSummaries({ ...all(), tests: fx.tests({ false_blocks: 2 }) }).proof?.attention).toBe(true);
     expect(buildSummaries(all()).proof?.attention).toBe(false);

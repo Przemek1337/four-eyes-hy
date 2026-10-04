@@ -80,7 +80,7 @@ export function buildSummaries(d: SummaryInput): Record<SectionId, Summary | nul
     const t = d.tests;
     const enforced = d.owasp ? ` ${d.owasp.categories.filter((c) => c.status === "enforced").length} of ${d.owasp.categories.length} OWASP categories enforced.` : "";
     proof = t.ran_at == null
-      ? { text: "No test report yet. Run make test.", attention: true }
+      ? { text: "No test report yet.", attention: true }
       : { text: `${t.passed} of ${t.passed + t.failed} tests pass. Missed attacks ${t.missed_attacks}, false blocks ${t.false_blocks}.${enforced}`, attention: t.failed > 0 || t.missed_attacks > 0 || t.false_blocks > 0 };
   }
   return { threats, data, policy, cost, speed, proof };

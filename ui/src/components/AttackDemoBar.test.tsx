@@ -65,7 +65,7 @@ describe("AttackDemoBar", () => {
   it("says what is missing when there is no demo harness, and does not offer the button", async () => {
     vi.mocked(api.attackStatus).mockResolvedValue(status({ state: "unavailable" }));
     render(<AttackDemoBar pollMs={5} />);
-    expect(await screen.findByText(/Needs the demo harness/)).toBeInTheDocument();
+    expect(await screen.findByText(/not available on this gateway/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run test attack" })).toBeDisabled();
   });
 
