@@ -103,7 +103,7 @@ def _flow(services, sess, events: list[dict]) -> dict:
     last_model = model_ev[-1]["route"] if model_ev else None
     lowest = snap.class_order[0]
     first_labeled = next((i for i, e in enumerate(decs, 1) if e.get("labels")), None)
-    agent = {"name": sess.agent_id, "model": f"{last_model['model']} ({last_model['chosen']})" if last_model else "",
+    agent = {"name": sess.agent_id, "model": f"{last_model.get('served_model') or last_model['model']} ({last_model['chosen']})" if last_model else "",
              "labels": sorted(sess.labels) + ([sess.data_class] if sess.data_class != lowest else []),
              "labels_since_step": first_labeled}
     allowed = snap.allowed_upstream_types(sess.data_class)
@@ -494,7 +494,8 @@ def chat(http: HttpRequest, body: dict = Body(...)):
     v = res.verdict
     ok = res.status == 200
     r = ev.get("route")
-    route = ({"type": r["chosen"], "model": r["model"], "router": r["router"], "rerouted_from": r["rerouted_from"]}
+    route = ({"type": r["chosen"], "model": r["model"], "served_model": r.get("served_model"), "router": r["router"],
+              "rerouted_from": r["rerouted_from"]}
              if r else None)
     return {"session_id": sid, "decision": res.outcome.value, "rule": v.rule if v else None,
             "layer": v.layer if v else None, "code": v.code if v else None,

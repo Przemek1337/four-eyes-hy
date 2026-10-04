@@ -17,6 +17,7 @@ class MockModelUpstream:
         self.seconds = seconds
         self.usage = usage
         self.available = True
+        self.served_model: str | None = None  # set it to simulate a server that answers with a different model
         self.calls: list[dict] = []
 
     def chat(self, model: str, messages: list[dict], tools: list[dict] | None = None, **params: Any) -> ModelResponse:
@@ -27,4 +28,4 @@ class MockModelUpstream:
         p, c = self.usage
         return ModelResponse(message=message, usage={"prompt_tokens": p, "completion_tokens": c,
                                                      "total_tokens": p + c},
-                             seconds=self.seconds, model=model)
+                             seconds=self.seconds, model=model, served_model=self.served_model)

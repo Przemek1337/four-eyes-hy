@@ -47,7 +47,7 @@ describe("prompts", () => {
     expect(api.chat).toHaveBeenCalledWith({ mode: "prompt", text: "What is a sole trader?", session_id: undefined });
     expect(screen.getByText("What is a sole trader?")).toHaveClass("me");
     expect(within(card).getByText("Answered by the local model")).toBeInTheDocument();
-    expect(within(card).getByText("local · qwen2.5:7b · router default")).toBeInTheDocument();
+    expect(within(card).getByText("local · qwen2.5:7b (as configured, the server did not say which model answered) · router default")).toBeInTheDocument();
     expect(within(card).getByText("12.3 ms")).toBeInTheDocument();
     expect(within(card).getByText("0.03")).toBeInTheDocument();
     expect(within(card).getByText("A sole trader is a one-person business.")).toBeInTheDocument();
@@ -157,6 +157,16 @@ describe("prompts", () => {
     await screen.findByRole("article", { name: "Result 1" });
     expect(api.chat).toHaveBeenCalledWith(expect.objectContaining({ text: "x".repeat(2000) }));
     expect(document.querySelector(".me")?.textContent).toHaveLength(601);
+  });
+});
+
+describe("which model answered", () => {
+  it("shows the model the server says answered, not the one the policy asked for", async () => {
+    vi.mocked(api.chat).mockResolvedValue(result({ route: { type: "local", model: "qwen2.5:7b", served_model: "basal-1.0-1.5B", router: "default", rerouted_from: null } }));
+    render(<ChatPanel />);
+    await send("hello");
+    const card = await screen.findByRole("article", { name: "Result 1" });
+    expect(within(card).getByText("local · basal-1.0-1.5B (the policy asked for qwen2.5:7b) · router default")).toBeInTheDocument();
   });
 });
 

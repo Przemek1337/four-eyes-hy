@@ -1,5 +1,6 @@
 import type { AuditEvent, Decision, SessionDetailT } from "./api/types";
 import type { Tone } from "./components/Badge";
+import { modelLabel } from "./format";
 
 export interface TimelineItem {
   key: string;
@@ -41,7 +42,7 @@ export function summaryFor(ev: AuditEvent): string {
     parts.push(`${ev.decision === "BLOCK" ? "Blocked" : "Held for approval"} by ${ev.rule}${ev.code ? ` (${ev.code})` : ""}`);
   }
   if (ev.kind === "model" && ev.route) {
-    parts.push(`Route: ${ev.data_class} → ${ev.route.chosen} (${ev.route.model}, router ${ev.route.router})`);
+    parts.push(`Route: ${ev.data_class} → ${ev.route.chosen} (${modelLabel(ev.route)}, router ${ev.route.router})`);
   }
   if (ev.route?.rerouted_from) parts.push(`rerouted from ${ev.route.rerouted_from}`);
   if (ev.anonymization === "not_applied") parts.push("external provider: anonymization not applied");

@@ -19,13 +19,17 @@ def make_document_runner(client, tools, key: str):
                             review_only=subject is None or subject["legalStructure"] is None, question=question)
         last = next((s for s in reversed(out["steps"]) if s["outcome"] in ("BLOCK", "APPROVAL")), None)
         sess = client.get(f"/admin/sessions/{session_id}").json()
+        # the model that really handled the agent's last call, as the gateway recorded it
+        used = next((e["route"] for e in reversed(sess.get("events", [])) if e.get("kind") == "model" and e.get("route")), None)
+        route = ({"type": used["chosen"], "model": used["model"], "served_model": used.get("served_model"),
+                  "router": used["router"], "rerouted_from": used["rerouted_from"]} if used else None)
         decision = last["outcome"] if last else "APPROVAL" if out["status"] == "additional_verification" else "ALLOW"
         reply = out["reply"]
         if subject:
             reply = f"Document subject: {subject['legalName']} ({subject['registry'].upper()} {subject['registryNumber']}). " + (reply or out["status"])
         return {"session_id": session_id, "decision": decision, "rule": None, "layer": None,
                 "code": last["code"] if last else None, "owasp": [], "data_class": sess["session"]["data_class"],
-                "route": None, "latency_ms": None, "injection_score": None, "ai": None, "reply": reply,
+                "route": route, "latency_ms": None, "injection_score": None, "ai": None, "reply": reply,
                 "approval_id": last["approval_id"] if last else None,
                 "message": out["status"], "steps": out["steps"]}
     return run

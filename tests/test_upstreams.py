@@ -72,3 +72,13 @@ def test_fake_tool_upstream():
     assert up.list_tools()[0]["name"] == "add"
     with pytest.raises(UpstreamError):
         up.call("missing", {})
+
+
+@pytest.mark.parametrize("reply_model,expected", [("basal-1.0-1.5B", "basal-1.0-1.5B"), (None, None), ("", None), (7, None)])
+def test_openai_compat_reports_the_model_the_server_says_answered(reply_model, expected):
+    body = {"choices": [{"message": {"role": "assistant", "content": "ok"}}], "usage": {}}
+    if reply_model is not None:
+        body["model"] = reply_model
+    client = httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200, json=body)))
+    r = OpenAICompatUpstream("http://x/v1", "local", client=client).chat("qwen2.5:7b", [{"role": "user", "content": "hi"}])
+    assert r.model == "qwen2.5:7b" and r.served_model == expected  # asked for qwen, the server decides what answered
