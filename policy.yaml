@@ -44,7 +44,7 @@ sources:
   mcp:entities_get:            { class: personal_data }
   mcp:entities_create:         { class: personal_data }
   mcp:entities_documents_read: { class: bank_secret, labels: [untrusted] }
-  mcp:search_documents:        { class: personal_data }
+  mcp:search_documents:        { class: personal_data, labels: [untrusted] }   # the shared index holds client uploads
   mcp:sanctions_check:         { class: public }
   mcp:public_registry_lookup:  { class: public }
   mcp:uk_registry_lookup:      { class: public }
@@ -115,10 +115,10 @@ tools:
       required: [legalName, legalStructure, country]
       additionalProperties: false
       properties:
-        legalName:      { type: string, minLength: 2 }
+        legalName:      { type: string, minLength: 2, maxLength: 200 }
         legalStructure: { enum: [sp_zoo, sa, sole_trader, ltd] }
         country:        { enum: [PL, DE, CZ, SK, GB, US] }
-        client_id:      { type: string }
+        client_id:      { type: string, maxLength: 64 }
   entities_submit:   { tags: [critical], requires_before: [sanctions_check] }
   send_email:        { tags: [egress], egress_arg: to, allowed_domains: ["bank.internal"] }
   update_case_notes: { cannot_change: [case_status] }
