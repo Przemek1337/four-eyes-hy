@@ -32,9 +32,11 @@ describe("App shell", () => {
     expect(screen.getByRole("region", { name: "Chat view" })).toBeInTheDocument();
   });
 
-  it("names the product for assistive technology", () => {
-    render(<App />);
-    expect(screen.getByRole("img", { name: "FourEyes" })).toBeInTheDocument();
+  it("shows the name next to the four dots, and the dots are decoration only", () => {
+    const { container } = render(<App />);
+    expect(screen.getByText("FourEyes")).toBeInTheDocument();
+    expect(container.querySelector(".eyes")).toHaveAttribute("aria-hidden", "true");
+    expect(container.querySelectorAll(".eyes i")).toHaveLength(4);
   });
 
   it("tells the user when the live stream is not connected", () => {

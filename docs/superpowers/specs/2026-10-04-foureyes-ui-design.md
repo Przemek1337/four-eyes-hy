@@ -28,7 +28,7 @@ Every state is also readable without colour (shape, fill, symbol, line style), s
 - **Fonts:** Inter 400/500/600/700 for everything; JetBrains Mono 400 only for evidence, ids, hashes, parameters and code. Bundle both with `@fontsource/inter` and `@fontsource/jetbrains-mono` through Vite. No CDN: the demo runs offline. (The key visual loads Google Fonts for preview only.)
 - **Type scale:** page title `clamp(28px,3.2vw,40px)` 600, `-0.025em`; section title 20/600; body 15/1.6; secondary 13–14; numbers use `font-variant-numeric: tabular-nums`; large numbers 36–56 at 600–700. No all-caps labels.
 - **Radii by hierarchy:** approval card 28, queue and alert bars 20–24, tiles and cards 16–18, inputs 12, pills and buttons 999.
-- **Layout:** left sidebar 272 px (logo of four dots, nav Security / Management / Chat, `Private → external` and live dot at the bottom); content max 1280 px, 48 px page padding; 72 px between sections; 44 px between timeline steps. Below 1180 px the approval card moves under the timeline; below 820 px the sidebar becomes a top bar. Must work at 360 px with no horizontal page scroll.
+- **Layout:** left sidebar 272 px (logo: four dots with the name FourEyes, nav Security / Management / Chat, `Private → external` and live dot at the bottom); content max 1280 px, 48 px page padding; 72 px between sections; 44 px between timeline steps. Below 1180 px the approval card moves under the timeline; below 820 px the sidebar becomes a top bar. Must work at 360 px with no horizontal page scroll.
 - **Text safety:** `overflow-wrap:anywhere` on `body`; all event and approval text rendered as text only.
 
 ## 3. State language (replaces colour semantics in the plan)
@@ -38,7 +38,7 @@ Every state is also readable without colour (shape, fill, symbol, line style), s
 | `Allow` | grey outline pill |
 | `Redact` | dashed grey outline pill |
 | `Approval` (waiting for a human) | **lime outline**, lime text |
-| `Block` (stopped by the system) | **lime filled pill with ✕**; on the timeline a larger lime node with ✕ and a lime-tinted card |
+| `Block` (stopped by the system) | **lime filled pill**, no cross (a cross reads as a button); on the timeline a larger lime node. An expanded step looks like a hovered one: neutral surface and a hairline, not a lime card |
 | `untrusted` | dashed ring, dashed timeline line, and a lightly tinted band from the first untrusted step to the end with the note "Session is untrusted from here" |
 | `high_risk` | filled white dot |
 | `clean` | hollow grey ring |

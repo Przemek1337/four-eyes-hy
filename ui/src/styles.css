@@ -43,9 +43,11 @@ code, .mono { font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhe
   display: flex; flex-direction: column; gap: 32px;
   border-right: 1px solid var(--line); overflow-y: auto;
 }
-.logo { display: grid; grid-template-columns: repeat(2, 9px); gap: 3px 10px; width: max-content; padding: 0 12px; }
-.logo i { width: 9px; height: 9px; border-radius: 50%; background: var(--hold); }
-.logo i:nth-child(n + 3) { background: transparent; box-shadow: inset 0 0 0 2px var(--hold); }
+.logo { display: flex; align-items: center; gap: 14px; width: max-content; padding: 0 12px; }
+.logo-name { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.eyes { display: grid; grid-template-columns: repeat(2, 9px); gap: 3px 10px; }
+.eyes i { width: 9px; height: 9px; border-radius: 50%; background: var(--hold); }
+.eyes i:nth-child(n + 3) { background: transparent; box-shadow: inset 0 0 0 2px var(--hold); }
 .nav { display: grid; gap: 4px; }
 .tab {
   display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 0; border-radius: 12px;
@@ -78,7 +80,6 @@ code, .mono { font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhe
 .badge-blue { }                                                        /* clean, allow: grey outline */
 .badge-orange { border-style: dashed; }                                /* untrusted, redact: dashed outline */
 .badge-red { background: var(--hold); border-color: var(--hold); color: var(--hold-ink); } /* blocked: lime fill */
-.badge-red::before { content: "\2715  "; font-size: 11px; }
 .badge-yellow { border-color: var(--hold); color: var(--hold); }       /* waiting for a human: lime outline */
 .badge-green { border-color: var(--text); color: var(--text); }        /* ok, enforced: white outline */
 
@@ -188,7 +189,9 @@ th { color: var(--faint); font-weight: 400; font-size: 13px; border-top: 0; }
 .tl-time { color: var(--muted); font: 400 12px var(--mono); padding-top: 21px; text-align: right; white-space: nowrap; }
 .tl-time small { display: block; color: var(--faint); }
 .tl-detail { padding: 6px 16px 4px; }
-.tl-step.stop.open .tl-body, .tl-step.hold.open .tl-body { background: var(--hold-tint); box-shadow: inset 0 0 0 1.5px var(--hold); border-radius: 20px; padding-bottom: 18px; }
+/* an open step looks like a hovered one: neutral surface and a hairline, never a lime card */
+.tl-step.open .tl-body { background: var(--surface); box-shadow: inset 0 0 0 1px var(--line); border-radius: 20px; padding-bottom: 18px; }
+.tl-step.open .tl-btn:hover { background: none; border-color: transparent; }
 .tl-tools { display: flex; align-items: center; justify-content: space-between; gap: 16px; margin-top: 56px; flex-wrap: wrap; }
 .tl-tools h2 { font-size: 18px; font-weight: 600; }
 
