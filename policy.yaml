@@ -110,6 +110,7 @@ agents:
 #   requires_before     another tool that must have been called first in the session
 tools:
   entities_create:
+    creates_entity: { id_result: entity_id, name_arg: legalName }
     schema:
       type: object
       required: [legalName, legalStructure, country]
@@ -119,10 +120,51 @@ tools:
         legalStructure: { enum: [sp_zoo, sa, sole_trader, ltd] }
         country:        { enum: [PL, DE, CZ, SK, GB, US] }
         client_id:      { type: string, maxLength: 64 }
-  entities_submit:   { tags: [critical], requires_before: [sanctions_check] }
-  send_email:        { tags: [egress], egress_arg: to, allowed_domains: ["bank.internal"] }
-  update_case_notes: { cannot_change: [case_status] }
-  search_documents:  { filter_by: client_id }
+  entities_submit:   { tags: [critical], requires_before: [sanctions_check],
+                       requires_screened_subject: { entity_arg: entity_id } }   # the screening must be of THIS entity, not any name
+  sanctions_check:   { screens: name }
+  send_email:        # an address outside allowed_domains is egress; cc, bcc and reply_to are checked like `to`
+    tags: [egress]
+    egress_arg: to
+    allowed_domains: ["bank.internal"]
+    schema:
+      type: object
+      required: [to]
+      additionalProperties: false
+      properties:
+        to:      { type: string, maxLength: 320 }
+        subject: { type: string, maxLength: 200 }
+        body:    { type: string, maxLength: 10000 }
+  update_case_notes:
+    cannot_change: [case_status]
+    schema:
+      type: object
+      required: [note]
+      additionalProperties: false
+      properties:
+        note: { type: string, maxLength: 2000 }
+  search_documents:
+    filter_by: client_id
+    schema:
+      type: object
+      required: [query]   # client_id is demanded by authz.scope, which gives the sharper reason
+      additionalProperties: false
+      properties:
+        query:     { type: string, maxLength: 500 }
+        client_id: { type: string, maxLength: 64 }
+  # Registry lookups go to a public API: only the shape of a registry number may pass, so no data can ride along.
+  public_registry_lookup:
+    schema:
+      type: object
+      required: [krs_number]
+      additionalProperties: false
+      properties: { krs_number: { type: string, pattern: "^[0-9]{10}$" } }
+  uk_registry_lookup:
+    schema:
+      type: object
+      required: [company_number]
+      additionalProperties: false
+      properties: { company_number: { type: string, pattern: "^[A-Za-z0-9]{8}$" } }
   load_model:        { artifact: true }
 
 # Provenance rules: what an untrusted or high_risk session may do, whatever the model was told.

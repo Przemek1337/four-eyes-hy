@@ -18,6 +18,8 @@ class SessionState:
     steps: int = 0
     tokens: int = 0
     tools_called: list[str] = field(default_factory=list)
+    screened: set[str] = field(default_factory=set)  # subjects a screening tool cleared, folded
+    entities: dict[str, str] = field(default_factory=dict)  # entity id -> subject name, folded
     last_turn: list[dict] = field(default_factory=list)  # Playground: the previous exchange, as the gateway delivered it
     _pending: list[dict] = field(default_factory=list, repr=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
@@ -55,6 +57,14 @@ class SessionState:
     def add_tokens(self, n: int) -> None:
         with self._lock:
             self.tokens += n
+
+    def note_screened(self, name: str) -> None:
+        with self._lock:
+            self.screened.add(name)
+
+    def note_entity(self, entity_id: str, name: str) -> None:
+        with self._lock:
+            self.entities[entity_id] = name
 
     def note_tool(self, tool: str) -> None:
         with self._lock:

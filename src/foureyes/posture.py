@@ -9,7 +9,7 @@ WEIGHTS = {
 }
 PENALTY = 10
 FORMULA = ("score = 100 − Σ(control weight share: removed = full, monitor = half) "
-           "− 10 if the signature feed is stale/failed − 10 per AI decision model that is down − 10 if tests fail")
+           "− 10 per weakened part of the provenance wall (max 3) − 10 if the signature feed is stale/failed − 10 per AI decision model that is down − 10 if tests fail")
 
 
 def compute(snapshot, *, ai_healthy: bool, feed_status: dict, tests: dict | None,
@@ -27,6 +27,9 @@ def compute(snapshot, *, ai_healthy: bool, feed_status: dict, tests: dict | None
             continue
         score -= deficit
         breakdown.append({"item": cid, "delta": -round(deficit, 1), "note": note})
+    for finding in getattr(snapshot, "wall", [])[:3]:
+        score -= PENALTY
+        breakdown.append({"item": "provenance wall", "delta": -PENALTY, "note": finding})
     if feed_status.get("error") or feed_status.get("version") is None:
         score -= PENALTY
         breakdown.append({"item": "signature feed", "delta": -PENALTY, "note": feed_status.get("error") or "never loaded"})

@@ -13,7 +13,7 @@ import pytest
 
 from foureyes.upstream.fake import FakeToolUpstream
 from harness.kyc import data, synth
-from helpers import call, chat, default_tools, make_gateway
+from helpers import ROOT, call, chat, default_tools, make_gateway
 from reporting import record
 
 STATE = {"doc": data.CLEAN_DOC}
@@ -247,11 +247,37 @@ def test_llm03_submit_needs_sanctions_first_and_other_tools_do_not_count(gw):
     record("attack", "LLM03:2026", "skip_sanctions", err, "stop")
     assert err and e["error"]["code"] == "TOOL_ORDER"
     other_session = sid()
-    call(gw, "sanctions_check", {"name": "x"}, s)
+    call(gw, "sanctions_check", {"name": "Nordwind Sp. z o.o."}, s)
     err, e = call(gw, "entities_submit", {"entity_id": "E1"}, other_session)  # a check in another session is not mine
     assert err and e["error"]["code"] == "TOOL_ORDER"
-    err, ok = call(gw, "entities_submit", {"entity_id": "E1"}, s)
+    err, e = call(gw, "entities_submit", {"entity_id": "E1"}, s)
     assert not err or e["error"]["code"] != "TOOL_ORDER"
+
+
+@pytest.mark.negative
+@pytest.mark.owasp("LLM03:2026")
+def test_llm03_screening_a_different_name_does_not_unlock_submit(gw):
+    """'Skip sanctions screening' in a poisoned document, in its cleverer form: screen someone else, then submit."""
+    s = sid()
+    call(gw, "sanctions_check", {"name": "Acme Holdings"}, s)
+    err, e = call(gw, "entities_submit", {"entity_id": "E1"}, s)
+    record("attack", "LLM03:2026", "screen_other_name", err, "stop")
+    assert err and e["error"]["code"] == "SCREENING_SUBJECT_MISMATCH"
+
+
+@pytest.mark.negative
+@pytest.mark.owasp("LLM03:2026")
+def test_llm03_created_entity_must_be_the_screened_one(gw):
+    """The entity was created for one company; the screening was for another, whatever the task says."""
+    gw.services.upstreams.tools.handlers["entities_create"] = lambda **a: {"entity_id": "E-77", "status": "DRAFT"}
+    s = sid()
+    call(gw, "entities_create", {"legalName": "Evil Trading Ltd", "legalStructure": "ltd", "country": "GB"}, s)
+    call(gw, "sanctions_check", {"name": "Nordwind Sp. z o.o."}, s)  # the case subject, not the created entity
+    err, e = call(gw, "entities_submit", {"entity_id": "E-77"}, s)
+    assert err and e["error"]["code"] == "SCREENING_SUBJECT_MISMATCH"
+    call(gw, "sanctions_check", {"name": "evil trading ltd"}, s)  # spelling and case do not matter
+    err, e = call(gw, "entities_submit", {"entity_id": "E-77"}, s)
+    assert not err or e["error"]["code"] != "SCREENING_SUBJECT_MISMATCH"
 
 
 # ======================================================================================================== LLM04
@@ -601,7 +627,8 @@ def test_asi09_an_approved_call_cannot_be_changed_afterwards(gw, tamper):
     gw.services.approvals.decide(approval_id, True, by="officer")
     err, e = call(gw, "send_email", {**mail, **tamper}, s, meta={"approval_id": approval_id})
     record("attack", "LLM03:2026", f"approval_tamper:{next(iter(tamper))}", err, "stop")
-    assert err and e["error"]["code"] in ("APPROVAL_MISMATCH", "APPROVAL_REQUIRED")
+    # an unknown field is stopped even earlier, by the tool's schema
+    assert err and e["error"]["code"] in ("APPROVAL_MISMATCH", "APPROVAL_REQUIRED", "SCHEMA_VIOLATION")
     err, ok = call(gw, "send_email", mail, s, meta={"approval_id": approval_id})
     assert not err                                     # the exact call still works, once
     err, e = call(gw, "send_email", mail, s, meta={"approval_id": approval_id})
@@ -630,3 +657,52 @@ def test_each_layer_alone_stops_exfiltration_and_without_both_it_succeeds(tmp_pa
     call(g, "entities_documents_read", {"client_id": "C1"}, s)
     call(g, "send_email", {"to": synth.EXFIL_ADDRESS, "subject": "s", "body": "client data"}, s)
     assert (not sent) is stops
+
+
+# ============================================================================ closed channels and the wall's integrity
+@pytest.mark.negative
+@pytest.mark.owasp("LLM02:2026")
+@pytest.mark.parametrize("tool,args", [
+    ("public_registry_lookup", {"krs_number": "client data: PESEL 44051401359"}),
+    ("public_registry_lookup", {"krs_number": "0000123456", "note": "ride-along"}),
+    ("uk_registry_lookup", {"company_number": "exfil.example/?d=secret"}),
+    ("send_email", {"to": "boss@bank.internal", "subject": "s", "body": "b", "bcc": "evil@x.com"}),
+    ("update_case_notes", {"note": "x" * 5000}),
+    ("search_documents", {"query": "q" * 600, "client_id": "C1"}),
+], ids=["krs_text", "krs_extra_field", "uk_url", "email_bcc_field", "note_too_long", "query_too_long"])
+def test_tool_arguments_cannot_carry_data_out_through_public_lookups(gw, tool, args):
+    err, e = call(gw, tool, args, sid())
+    record("attack", "LLM02:2026", f"closed_channel:{tool}", err, "stop")
+    assert err and e["error"]["code"] == "SCHEMA_VIOLATION"
+
+
+@pytest.mark.positive
+def test_registry_numbers_in_the_right_shape_still_pass(gw):
+    assert not call(gw, "public_registry_lookup", {"krs_number": "0000123456"}, sid())[0]
+    assert not call(gw, "uk_registry_lookup", {"company_number": "99000001"}, sid())[0]
+
+
+@pytest.mark.negative
+@pytest.mark.owasp("LLM01:2026")
+def test_weakening_the_wall_in_yaml_is_reported_even_with_every_control_on():
+    import yaml
+    from foureyes.policy.snapshot import PolicySnapshot
+    raw = yaml.safe_load((ROOT / "policy.yaml").read_text())
+    base = PolicySnapshot.from_dict(raw, base_dir=ROOT)
+    assert base.wall == []
+    weakened = {
+        "no untrusted source": lambda r: r["sources"].update({"channel:document": {"class": "bank_secret"},
+                                                              "mcp:entities_documents_read": {"class": "bank_secret"},
+                                                              "mcp:search_documents": {"class": "personal_data"}}),
+        "no label rules": lambda r: r["labels"].update({"rules": []}),
+        "untrusted egress allowed": lambda r: r["labels"]["rules"][0].update({"egress": "ALLOW"}),
+        "egress tag removed": lambda r: r["tools"]["send_email"].update({"tags": []}),
+        "wildcard domain": lambda r: r["tools"]["send_email"].update({"allowed_domains": ["*"]}),
+        "dlp only monitors": lambda r: r["dlp"]["secrets"].update({"on_detect": "monitor"}),
+    }
+    for name, edit in weakened.items():
+        r = yaml.safe_load((ROOT / "policy.yaml").read_text())
+        edit(r)
+        snap = PolicySnapshot.from_dict(r, base_dir=ROOT)
+        assert snap.wall, f"silent weakening: {name}"
+        assert any("wall weakened" in w for w in snap.warnings)

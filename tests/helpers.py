@@ -68,7 +68,7 @@ def default_tools() -> FakeToolUpstream:
     return FakeToolUpstream({
         "entities_documents_read": lambda **a: {"text": DOC},
         "entities_get": lambda **a: {"legalName": "Nordwind Sp. z o.o.", "passport_no": "AB1234567"},
-        "entities_create": lambda **a: {"status": "DRAFT"},
+        "entities_create": lambda **a: {"entity_id": "E1", "status": "DRAFT"},
         "sanctions_check": lambda **a: {"result": "clear"},
         "entities_submit": lambda **a: {"status": "REVIEW"},
         "send_email": lambda **a: {"sent": True},

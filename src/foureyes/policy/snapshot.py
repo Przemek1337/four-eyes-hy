@@ -9,6 +9,7 @@ from foureyes.semantic.decision_model_types import BUILTIN_MODELS, decision_mode
 
 from .models import Policy
 from .validator import validate
+from .wall import wall_findings
 
 
 class PolicySnapshot:
@@ -20,7 +21,9 @@ class PolicySnapshot:
         self.policy = policy
         self.base_dir = base_dir
         self._schemas: dict[str, dict | None] = {}
-        self.warnings: list[str] = decision_model_warnings(policy.decision_models, policy.controls)
+        self.wall: list[str] = wall_findings(policy)
+        self.warnings: list[str] = decision_model_warnings(policy.decision_models, policy.controls) + [
+            f"wall weakened: {f}" for f in self.wall]
 
     @classmethod
     def from_dict(cls, raw: dict, base_dir: Path = Path("."), snap_id: int = 1) -> "PolicySnapshot":

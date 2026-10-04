@@ -47,6 +47,9 @@ def test_tool_order_requires_sanctions_check_before_submit():
     ctx = tool_ctx("entities_submit")
     assert AuthzTools().evaluate(ctx, "pre").code == "TOOL_ORDER"
     ctx.session.note_tool("sanctions_check")
+    assert AuthzTools().evaluate(ctx, "pre").code == "SCREENING_SUBJECT_MISMATCH"  # screened nobody this call acts on
+    ctx.session.task = "KYC for Nordwind Sp. z o.o."
+    ctx.session.note_screened("nordwindspzoo")
     assert AuthzTools().evaluate(ctx, "pre") is None
 
 
@@ -124,3 +127,40 @@ def test_results_from_other_clients_are_filtered_out():
     v = ScopeControl().evaluate(ctx, "post")
     assert v.outcome is Outcome.REDACT and v.detail["removed"] == 2
     assert ctx.result["results"] == [{"client_id": "C1", "text": "a"}]
+
+
+EGRESS = {"allowed_domains": ["bank.internal"], "egress_arg": "to"}
+
+
+@pytest.mark.negative
+@pytest.mark.owasp("LLM01:2026")
+@pytest.mark.parametrize("to", [
+    "evil@x.com, ok@bank.internal", "evil@x.com;ok@bank.internal", "ok@bank.internal, evil@x.com",
+    "evil@x.com@bank.internal", "ok@bank.internal evil@x.com", "Evil <evil@x.com>, Boss <ok@bank.internal>",
+    "ok@bank.internal.evil.com", ["ok@bank.internal", "evil@x.com"], "", None])
+def test_every_recipient_must_be_inside_the_bank(to):
+    from foureyes.core.actions import is_outside
+    assert is_outside({"to": to}, EGRESS)
+
+
+@pytest.mark.negative
+@pytest.mark.parametrize("extra", ["cc", "bcc", "reply_to"])
+def test_hidden_recipient_fields_are_checked(extra):
+    from foureyes.core.actions import is_outside
+    assert is_outside({"to": "ok@bank.internal", extra: "evil@x.com"}, EGRESS)
+
+
+@pytest.mark.positive
+@pytest.mark.parametrize("to", ["ok@bank.internal", "a@bank.internal, b@bank.internal", "Boss <ok@mail.bank.internal>",
+                                ["a@bank.internal", "b@bank.internal"]])
+def test_internal_recipients_stay_inside(to):
+    from foureyes.core.actions import is_outside
+    assert not is_outside({"to": to, "cc": "c@bank.internal"}, EGRESS)
+
+
+@pytest.mark.positive
+def test_screening_tolerates_a_dropped_legal_form_but_not_another_company():
+    from foureyes.controls.tools import fold, same_subject
+    assert same_subject(fold("Nordwind"), fold("Nordwind Sp. z o.o."))
+    assert not same_subject(fold("Acme Holdings"), fold("Nordwind Sp. z o.o."))
+    assert not same_subject(fold("AB"), fold("ABC Ltd"))  # too short to count as a match

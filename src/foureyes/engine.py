@@ -210,6 +210,17 @@ class Engine:
         tools = self.s.upstreams.tools.list_tools() if self.s.upstreams.tools else []
         return [t for t in tools if t["name"] in allowed]
 
+    @staticmethod
+    def _note_subjects(ctx, req) -> None:
+        """Remember whom a screening tool cleared and which name an entity was created for (policy: tools.<t>.screens / creates_entity)."""
+        cfg = ctx.policy.tools.get(req.tool, {})
+        from foureyes.controls.tools import fold
+        if cfg.get("screens") and req.args.get(cfg["screens"]):
+            ctx.session.note_screened(fold(req.args[cfg["screens"]]))
+        made = cfg.get("creates_entity")
+        if made and isinstance(ctx.result, dict) and ctx.result.get(made["id_result"]) and req.args.get(made["name_arg"]):
+            ctx.session.note_entity(str(ctx.result[made["id_result"]]), fold(req.args[made["name_arg"]]))
+
     def handle_tool(self, req: Request) -> GatewayResult:
         t0 = time.perf_counter()
         ctx, pipe = self._begin(req)
@@ -228,6 +239,7 @@ class Engine:
             return self._reject(ctx, Verdict.block("route.upstream", str(exc), code="UPSTREAM_ERROR"), t0, up_ms)
         up_ms = (time.perf_counter() - t_up) * 1000
         ctx.session.note_tool(req.tool)
+        self._note_subjects(ctx, req)
 
         post = pipe.run(ctx, "post")
         if post.outcome in (Outcome.BLOCK, Outcome.APPROVAL):

@@ -75,6 +75,9 @@ class PolicyStore:
         self.history.append(entry)
         self._on_event({"event": "policy.reloaded", "policy_version": new.label, "diff": diff,
                         "warnings": list(new.warnings)})
+        for finding in new.wall:
+            if finding not in old.wall:
+                self._on_event({"event": "policy.wall_weakened", "finding": finding, "policy_version": new.label})
         for cid in CATALOG_IDS:
             if old.has_control(cid) and not new.has_control(cid):
                 self._on_event({"event": "control.removed", "control": cid, "policy_version": new.label})
