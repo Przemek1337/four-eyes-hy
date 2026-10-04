@@ -23,7 +23,7 @@ class RegistryLookup(Protocol):
 
 def lookup_result(registry: RegistryLookup, number: str) -> dict:
     """Tool-shaped answer that never raises, so the agent (and the audit) see exactly what happened."""
-    base = {"registry": registry.registry, "number": number}
+    base = {"registry": registry.registry, "number": number, "source": "live" if registry.live else "file"}
     try:
         record = registry.lookup(number)
     except json.JSONDecodeError:

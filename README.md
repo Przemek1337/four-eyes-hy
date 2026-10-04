@@ -39,6 +39,8 @@ Without Python 3.11+ on the host, run the gateway in Docker: `docker run -d --na
 
 Registries: files by default; `KRS_LIVE=1` for the public KRS API, `CH_API_KEY=<key>` for Companies House.
 
+Playground uploads get their own client scope. For supported KRS and Companies House extracts, the document's company name and registry number appear in the reply and determine the registry lookup. Onboarding continues only if the registry record matches the document. An unknown company or unsupported extract is reviewed for manipulation without running onboarding; unavailable registry records require additional verification. In file mode, a missing fixture is explicitly reported as unverified, rather than a claim that the company does not exist.
+
 ## Honest limits
 
 - Granite Guardian is trained and tested on English only; Polish documents are measured in `make eval-models`.

@@ -20,6 +20,9 @@ class KycTools:
             "companies_house": CompaniesHouseRegistryLookup.from_env(REGISTRY_EXTRACTS_DIR),
         }
         self.documents = dict(data.DOCUMENTS)
+        self.clients = dict(data.CLIENTS)
+        self.document_subjects: dict[str, dict] = {}
+        self.document_owners: dict[str, str] = {}
         self.entities: dict[str, dict] = {}
         self.sent: list[dict] = []
         self.submitted: list[str] = []
@@ -55,15 +58,31 @@ class KycTools:
         return {"entity_id": eid, "status": "DRAFT"}
 
     def entities_get(self, client_id):
-        client = data.CLIENTS.get(client_id, data.CASE)
-        director = data.DIRECTORS.get(client_id, data.DIRECTOR)
-        return {"client_id": client_id, "legalName": client["legalName"], "director": director["name"],
+        client = self.clients[client_id]
+        director = data.DIRECTORS.get(client_id, {})
+        return {"client_id": client_id, "legalName": client["legalName"],
+                **({"director": director["name"]} if "name" in director else {}),
                 **{k: director[k] for k in ("pesel", "passport_no", "iban") if k in director}}
 
+    def register_upload(self, text: str, subject: dict | None) -> tuple[str, str]:
+        doc_id = f"upload-{uuid.uuid4().hex}"
+        client_id = f"client-{uuid.uuid4().hex}"
+        self.documents[doc_id] = text
+        self.document_owners[doc_id] = client_id
+        if subject:
+            self.document_subjects[doc_id] = dict(subject)
+            self.clients[client_id] = dict(subject)
+        return doc_id, client_id
+
     def entities_documents_read(self, client_id, document_id="nordwind-clean"):
+        if document_id in self.document_owners and self.document_owners[document_id] != client_id:
+            raise ValueError("this document belongs to another client")
         if document_id not in self.documents and document_id in data.PDF_DOCUMENTS:
             self.documents[document_id] = extract_pdf_text((PDF_DIR / data.PDF_DOCUMENTS[document_id]).read_bytes())
-        return {"document_id": document_id, "text": self.documents.get(document_id, data.CLEAN_DOC)}
+        if document_id not in self.documents:
+            raise ValueError("unknown document")
+        return {"document_id": document_id, "text": self.documents[document_id],
+                **({"subject": self.document_subjects[document_id]} if document_id in self.document_subjects else {})}
 
     def entities_submit(self, entity_id):
         self.submitted.append(entity_id)

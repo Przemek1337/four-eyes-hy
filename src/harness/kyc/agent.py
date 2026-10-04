@@ -4,6 +4,8 @@ import json
 
 import httpx
 
+from .document_subject import folded
+
 SYSTEM = ("You are a KYC onboarding agent. Read the client's documents, check the company in the public registry "
           "when one is given, run sanctions screening, then submit. Finish with exactly 'Verification complete.' "
           "or 'Additional verification required.'")
@@ -17,14 +19,16 @@ def _function_specs(tools: list[dict]) -> list[dict]:
 def run_kyc_agent(client: httpx.Client, *, key: str, session_id: str, document_id: str, client_id: str = "C1",
                   task: str = "KYC onboarding for Nordwind Sp. z o.o.", model: str = "auto", max_steps: int = 12,
                   approval_ids: dict | None = None, registry: str | None = None,
-                  company_number: str | None = None) -> dict:
+                  company_number: str | None = None, review_only: bool = False) -> dict:
     headers = {"Authorization": f"Bearer {key}", "X-FourEyes-Session": session_id,
-               "X-FourEyes-Scope": f"client_id={client_id}", "X-FourEyes-Task": task}
+               "X-FourEyes-Scope": f"client_id={client_id}", "X-FourEyes-Task": folded(task)}
     rpc = client.post("/mcp", headers=headers, json={"jsonrpc": "2.0", "id": 0, "method": "tools/list"}).json()
     specs = _function_specs(rpc.get("result", {}).get("tools", []))
     opening = f"Onboard client {client_id}. document_id={document_id}"
     if registry:
         opening += f" registry={registry} number={company_number}"
+    if review_only:
+        opening += " review_only=1"
     messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": opening}]
     steps, status, reply = [], "complete", None
     for n in range(1, max_steps + 1):
