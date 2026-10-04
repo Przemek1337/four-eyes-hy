@@ -4,6 +4,7 @@ import { api } from "./api/client";
 import App from "./App";
 import { Async } from "./components/Async";
 import { ConnectionBanner } from "./components/ConnectionBanner";
+import { GatewayScreen } from "./components/GatewayScreen";
 import { SessionList } from "./components/SessionList";
 import { usePolling } from "./hooks/usePolling";
 import { LiveProvider, OFFLINE_AFTER, useLive } from "./live";
@@ -99,23 +100,79 @@ describe("ConnectionBanner", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("explains that panels show old data, and Retry now polls again", async () => {
-    const fetchSpy = vi.fn(() => Promise.reject(new Error("down")));
+  it("once data has loaded, explains that panels show old data, and Retry now polls again", async () => {
+    let up = true;
+    const fetchSpy = vi.fn(() => (up ? Promise.resolve("v") : Promise.reject(new Error("down"))));
     vi.stubGlobal("fetch", fetchSpy);
     function Probe() {
       const { refreshNow } = useLive();
-      usePolling(() => fetch("/x").then((r) => r.text()), []);
-      usePolling(() => fetch("/y").then((r) => r.text()), []);
-      usePolling(() => fetch("/z").then((r) => r.text()), []);
+      usePolling(() => fetch("/x").then((r) => String(r)), []);
+      usePolling(() => fetch("/y").then((r) => String(r)), []);
+      usePolling(() => fetch("/z").then((r) => String(r)), []);
       return <button onClick={refreshNow}>poke</button>;
     }
-    render(<LiveProvider><ConnectionBanner /><Probe /><Failing /></LiveProvider>);
+    render(<LiveProvider><ConnectionBanner /><GatewayScreen /><Probe /></LiveProvider>);
+    await waitFor(() => expect(screen.queryByText("Connecting to the gateway…")).not.toBeInTheDocument());
+    up = false;
+    await userEvent.click(screen.getByRole("button", { name: "poke" }));
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("The gateway is not responding");
     expect(alert).toHaveTextContent("last data they loaded");
     const before = fetchSpy.mock.calls.length;
     await userEvent.click(screen.getByRole("button", { name: "Retry now" }));
     await waitFor(() => expect(fetchSpy.mock.calls.length).toBeGreaterThan(before));
+  });
+});
+
+describe("GatewayScreen", () => {
+  function Failing() {
+    usePolling(() => Promise.reject(new Error("down")), []);
+    usePolling(() => Promise.reject(new Error("down")), []);
+    usePolling(() => Promise.reject(new Error("down")), []);
+    return null;
+  }
+
+  it("says it is connecting while nothing has answered yet, with the four eyes", () => {
+    const { container } = render(<LiveProvider><GatewayScreen /></LiveProvider>);
+    expect(screen.getByText("Connecting to the gateway…")).toBeInTheDocument();
+    expect(container.querySelectorAll(".gw-eyes i")).toHaveLength(4);
+    expect(container.querySelector(".gw-eyes")).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("says the gateway is not responding, how to start it, and Retry now polls again", async () => {
+    const fetchSpy = vi.fn(() => Promise.reject(new Error("down")));
+    vi.stubGlobal("fetch", fetchSpy);
+    function Probes() {
+      usePolling(() => fetch("/a").then((r) => r.text()), []);
+      usePolling(() => fetch("/b").then((r) => r.text()), []);
+      usePolling(() => fetch("/c").then((r) => r.text()), []);
+      return null;
+    }
+    render(<LiveProvider><GatewayScreen /><Probes /></LiveProvider>);
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent("The gateway is not responding.");
+    expect(alert).toHaveTextContent("make run");
+    const before = fetchSpy.mock.calls.length;
+    await userEvent.click(screen.getByRole("button", { name: "Retry now" }));
+    await waitFor(() => expect(fetchSpy.mock.calls.length).toBeGreaterThan(before));
+  });
+
+  it("goes away on the first answer, and does not come back when the gateway drops later", async () => {
+    let up = false;
+    function Probes() {
+      const { refreshNow } = useLive();
+      for (const id of ["a", "b", "c"]) usePolling(() => (up ? Promise.resolve(id) : Promise.reject(new Error("down"))), []);
+      return <button onClick={refreshNow}>poke</button>;
+    }
+    render(<LiveProvider><GatewayScreen /><ConnectionBanner /><Probes /></LiveProvider>);
+    expect(await screen.findByText("The gateway is not responding.")).toBeInTheDocument();
+    up = true;
+    await userEvent.click(screen.getByRole("button", { name: "poke" }));
+    await waitFor(() => expect(screen.queryByText("The gateway is not responding.")).not.toBeInTheDocument());
+    up = false;
+    await userEvent.click(screen.getByRole("button", { name: "poke" }));
+    expect(await screen.findByText(/last data they loaded/)).toBeInTheDocument();   // the banner, not the full screen
+    expect(screen.queryByText(/make run/)).not.toBeInTheDocument();
   });
 });
 

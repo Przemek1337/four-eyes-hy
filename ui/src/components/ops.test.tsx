@@ -128,6 +128,26 @@ describe("TestsPanel", () => {
     expect(screen.getByText("6 / 6")).not.toHaveClass("bad");
   });
 
+  it("shows the synthetic corpus results: detection rate, false-block rate and known gaps", () => {
+    render(<TestsPanel tests={fx.tests({ corpus: fx.corpus() })} />);
+    expect(screen.getByRole("group", { name: "Attack detection" })).toHaveTextContent("80.0%");
+    expect(screen.getByRole("group", { name: "Attack detection" })).toHaveTextContent("480 of 600");
+    expect(screen.getByRole("group", { name: "Corpus false blocks" })).toHaveClass("hold");
+    expect(screen.getByRole("group", { name: "Known gaps" })).toHaveTextContent("120");
+    expect(screen.getByText("Known gaps (120)")).toBeInTheDocument();
+    expect(screen.getByText("LLM02:2026", { selector: "td" }).closest("tr")).toHaveTextContent("1 / 40");
+  });
+
+  it("does not claim a clean corpus when a legitimate case was blocked", () => {
+    render(<TestsPanel tests={fx.tests({ corpus: fx.corpus({ false_blocks: 2, false_block_rate: 0.03 }) })} />);
+    expect(screen.getByRole("group", { name: "Corpus false blocks" })).not.toHaveClass("hold");
+  });
+
+  it("omits the corpus block for reports that predate it", () => {
+    render(<TestsPanel tests={fx.tests()} />);
+    expect(screen.queryByLabelText("Synthetic corpus")).not.toBeInTheDocument();
+  });
+
   it("tells how to produce a report when there is none", () => {
     render(<TestsPanel tests={fx.tests({ ran_at: null, passed: 0, failed: 0, by_owasp: {} })} />);
     expect(screen.getByText(/No test report yet/)).toBeInTheDocument();

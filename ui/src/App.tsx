@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Logo } from "./components/Logo";
 import { ConnectionBanner } from "./components/ConnectionBanner";
+import { GatewayScreen } from "./components/GatewayScreen";
 import { LiveProvider, useLive } from "./live";
 import { ChatView } from "./views/ChatView";
 import { ManagementView } from "./views/ManagementView";
@@ -26,6 +27,7 @@ function Shell() {
   const { connected, offline } = useLive();
   return (
     <div className="app">
+      <GatewayScreen />
       <aside className="side">
         <Logo />
         <nav className="nav" role="tablist" aria-orientation="vertical" aria-label="Views">
