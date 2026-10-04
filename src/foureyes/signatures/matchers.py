@@ -8,6 +8,11 @@ from urllib.parse import urlparse
 
 _ZERO_WIDTH = {chr(c) for c in (0x200B, 0x200C, 0x200D, 0x200E, 0x200F, 0x2060, 0xFEFF)}
 _MD_URL = re.compile(r"!?\[[^\]]*\]\((?P<url>[^)\s]+)[^)]*\)")
+_OTHER_URLS = re.compile(
+    r"""(?:^[ \t]{0,3}\[[^\]\n]+\]:[ \t]*<?(?P<ref>\S+?)>?(?:[ \t]|$))"""      # [1]: https://host
+    r"""|(?:<(?P<auto>(?:https?:)?//[^\s<>]+)>)"""                                    # <https://host>
+    r"""|(?:\b(?:src|href|srcset|action|poster|data)\s*=\s*["']?(?P<attr>(?:https?:)?//[^\s"'>]+))"""  # html attrs
+    r"""|(?:(?<![\w(<"'=/])(?P<bare>https?://[^\s<>")\]]+))""", re.I | re.M)         # bare URL
 
 
 def has_unicode_smuggling(text: str) -> bool:
@@ -50,8 +55,27 @@ def scan_pickle_bytes(data: bytes) -> list[str]:
 
 
 def urls_in(text: str) -> list[str]:
-    return [m.group("url") for m in _MD_URL.finditer(text)]
+    """Every URL in a model answer: inline markdown, reference definitions, autolinks, HTML attributes, bare links."""
+    found = [m.group("url") for m in _MD_URL.finditer(text)]
+    found += [next(g for g in m.groups() if g) for m in _OTHER_URLS.finditer(text)]
+    return found
 
 
 def host_of(url: str) -> str:
-    return (urlparse(url if "://" in url else "//" + url).hostname or "").lower()
+    url = url.strip()
+    return (urlparse(url if "://" in url or url.startswith("//") else "//" + url).hostname or "").lower()
+
+
+def looks_like_pickle(data: bytes) -> bool:
+    """A pickle stream starts with the PROTO opcode; a torch archive is a zip holding one."""
+    return (len(data) > 2 and data[0] == 0x80 and 2 <= data[1] <= 5) or data[:2] == b"PK"
+
+
+def content_matches_format(ext: str, data: bytes) -> bool:
+    """Magic-byte check for the formats the policy allows, so a pickle cannot pass under a safe-looking name."""
+    if ext == "gguf":
+        return data[:4] == b"GGUF"
+    if ext == "safetensors":
+        # 8-byte little-endian header length, then a JSON header
+        return len(data) > 9 and data[8:9] == b"{" and int.from_bytes(data[:8], "little") < len(data)
+    return True

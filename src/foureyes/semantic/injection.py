@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Protocol
 
 
@@ -11,13 +12,16 @@ class InjectionScorer(Protocol):
 
 class MockInjectionScorer:
     """Deterministic stand-in for a prompt-injection classifier (used in tests and offline demos)."""
-    PATTERNS = ("ignore previous instructions", "ignore all previous", "disregard", "you are now",
-                "reveal your system prompt", "print your instructions", "ignoruj poprzednie")
+    PATTERNS = (r"ignore (?:all |any )?(?:previous|prior|above) (?:instructions|rules|directives)",
+                r"disregard (?:your|the|all|any) (?:system prompt|previous|prior|instructions|rules)",
+                r"you are now (?:dan|free|unrestricted|jailbroken|an? ai without)", r"now you are unrestricted",
+                r"reveal (?:your|the) system prompt", r"print your instructions", r"ignoruj poprzednie")
 
     def __init__(self, fixed: float | None = None, fail: bool = False, extra_patterns: tuple[str, ...] = ()):
         self.fixed = fixed
         self.fail = fail
-        self.patterns = self.PATTERNS + tuple(p.lower() for p in extra_patterns)  # domain phrases come from the caller
+        self.patterns = tuple(re.compile(p) for p in self.PATTERNS) + tuple(
+            re.compile(re.escape(p.lower())) for p in extra_patterns)  # domain phrases come from the caller
 
     def score(self, text: str) -> float:
         if self.fail:
@@ -25,7 +29,7 @@ class MockInjectionScorer:
         if self.fixed is not None:
             return self.fixed
         lowered = text.lower()
-        return 0.95 if any(p in lowered for p in self.patterns) else 0.03
+        return 0.95 if any(p.search(lowered) for p in self.patterns) else 0.03
 
     def healthy(self) -> bool:
         return not self.fail
