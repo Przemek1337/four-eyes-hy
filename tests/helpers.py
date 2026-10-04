@@ -79,13 +79,15 @@ def default_tools() -> FakeToolUpstream:
     })
 
 
-def make_gateway(tmp_path, overrides=None, remove_controls=(), tools=None, injection=None, judge=None, router=None):
+def make_gateway(tmp_path, overrides=None, remove_controls=(), tools=None, injection=None, judge=None, router=None,
+                 local_script=None):
     import yaml
     _os.environ.setdefault("KYC_AGENT_KEY", "k-kyc")
     _os.environ.setdefault("PLAYGROUND_AGENT_KEY", "k-play")
     path = tmp_path / "policy.yaml"
     path.write_text(yaml.safe_dump(policy_with(overrides, remove_controls)))
     local, external = MockModelUpstream("local"), MockModelUpstream("external")
+    local.script = local_script
     services = build_services(path, audit_path=tmp_path / "audit.jsonl", base_dir=ROOT,
                               upstreams=UpstreamRegistry({"local": local, "external": external}, tools or default_tools()),
                               injection=injection or MockInjectionScorer(extra_patterns=KYC_PHRASES),
@@ -93,3 +95,18 @@ def make_gateway(tmp_path, overrides=None, remove_controls=(), tools=None, injec
     client = TestClient(create_app(services))
     return SimpleNamespace(client=client, services=services, local=local, external=external,
                            policy_path=path, headers={"Authorization": "Bearer k-kyc"})
+
+
+def chat(gw, text="hello", session="s1", model="auto", headers=None, **extra):
+    h = {**gw.headers, "X-FourEyes-Session": session, **(headers or {})}
+    body = {"model": model, "messages": [{"role": "user", "content": text}], **extra}
+    return gw.client.post("/v1/chat/completions", json=body, headers=h)
+
+
+def call(gw, name, args, session="s1", rpc_id=1, meta=None, headers=None):
+    h = {**gw.headers, "X-FourEyes-Session": session, "X-FourEyes-Scope": "client_id=C1",
+         "X-FourEyes-Task": "KYC for Nordwind Sp. z o.o.", **(headers or {})}
+    body = {"jsonrpc": "2.0", "id": rpc_id, "method": "tools/call",
+            "params": {"name": name, "arguments": args, "_meta": meta or {}}}
+    r = gw.client.post("/mcp", json=body, headers=h).json()["result"]
+    return r["isError"], r["structuredContent"]

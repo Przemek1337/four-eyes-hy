@@ -5,24 +5,9 @@ import time
 import pytest
 import yaml
 
-from helpers import DOC, make_gateway, policy_with
+from helpers import DOC, call, chat, make_gateway, policy_with
 
 PESEL = "44051401359"
-
-
-def chat(gw, text="hello", session="s1", model="auto", headers=None, **extra):
-    h = {**gw.headers, "X-FourEyes-Session": session, **(headers or {})}
-    body = {"model": model, "messages": [{"role": "user", "content": text}], **extra}
-    return gw.client.post("/v1/chat/completions", json=body, headers=h)
-
-
-def call(gw, name, args, session="s1", rpc_id=1, meta=None, headers=None):
-    h = {**gw.headers, "X-FourEyes-Session": session, "X-FourEyes-Scope": "client_id=C1",
-         "X-FourEyes-Task": "KYC for Nordwind Sp. z o.o.", **(headers or {})}
-    body = {"jsonrpc": "2.0", "id": rpc_id, "method": "tools/call",
-            "params": {"name": name, "arguments": args, "_meta": meta or {}}}
-    r = gw.client.post("/mcp", json=body, headers=h).json()["result"]
-    return r["isError"], r["structuredContent"]
 
 
 @pytest.fixture
