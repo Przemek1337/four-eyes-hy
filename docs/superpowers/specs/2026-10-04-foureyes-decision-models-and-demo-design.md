@@ -285,7 +285,7 @@ Adaptery nazwane po roli, nie po modelu, bo każdy działa z dowolnym `DecisionM
 
 ## 7. Kontrakt z portalem klienta — USUNIĘTE (2026-10-04)
 
-**Decyzja:** portalu nie budujemy. Dokumenty klienta trafiają do agenta przez istniejący w repo **Playground** (`/admin/chat`, tryb document), a scenariusze demo uruchamiają agenta KYC bezpośrednio przez gateway. Poniższy kontrakt zostaje wyłącznie jako zapis wcześniejszej wersji.
+**Decyzja:** portalu nie budujemy. Klient (albo sędzia) wrzuca PDF do istniejącego w repo **Playground** (`/admin/chat`, tryb document): przeglądarka wysyła plik jako base64, gateway przekazuje bajty harnessowi, a ten wyciąga warstwę tekstową (tylko `%PDF-`, maks. 5 MB; nieczytelny plik → 422 z wyjaśnieniem). Scenariusze demo uruchamiają agenta KYC bezpośrednio przez gateway. Poniższy kontrakt zostaje wyłącznie jako zapis wcześniejszej wersji.
 
 | Endpoint | Wejście | Wyjście |
 |---|---|---|

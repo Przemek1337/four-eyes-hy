@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Plug two local decision models into the three AI controls (Granite Guardian for manipulation rules, Basal for data class and action consistency) and ship real demo files (registry-extract PDFs, two company registries and runnable demo scenarios; documents go through the existing Playground).
+**Goal:** Plug two local decision models into the three AI controls (Granite Guardian for manipulation rules, Basal for data class and action consistency) and ship real demo files (registry-extract PDFs, two company registries, PDF upload in the existing Playground and runnable demo scenarios).
 
 **Architecture:** A `DecisionModelClient` port with Basal, Granite Guardian and mock adapters, built per policy snapshot by a `DecisionModelRegistry` on `Services`. The three existing controls ask the registry for the model named in `policy.yaml`; when no registry is wired (unit tests that pass `services=SimpleNamespace(...)`) they keep the legacy `services.injection` / `services.judge` path. Everything KYC- or registry-specific (PDFs, KRS, Companies House, scenarios, mock decision rules) lives in `src/harness/`.
 
@@ -21,7 +21,7 @@
 - Granite Guardian: `ibm-granite/granite-guardian-4.1-8b`, context 8192 tokens, `max_input_tokens: 7000`. Basal: `basal-1.0-4.5B`, prompt limit 3072 tokens, `max_input_tokens: 2800`. Tokens are estimated as `len(text) / 4`; chunk overlap 200 tokens (spec §4.4).
 - Fictional companies only: Nordwind Sp. z o.o., KRS `0099000001`; Thames Freight Ltd, Companies House `99000001`.
 - Live registries only on opt-in: `KRS_LIVE=1`; `CH_API_KEY=<key>` (HTTP Basic, key as username, empty password). A live failure never falls back to the file (spec §5).
-- No client portal: documents reach the agent through the existing Playground (`/admin/chat`, document mode); the spec's §7 portal contract is dropped.
+- No client portal (spec §7 dropped): client PDFs are dropped into the existing Playground (`/admin/chat`, document mode, Task 14): only files whose bytes start with `%PDF-`, at most 5 MB; the text layer is read in the harness, never in the core.
 - No database: all runtime state stays in memory behind ports.
 - UI copy in English; spec and notes in Polish.
 
@@ -30,7 +30,7 @@
 1. **A model answers with an option that is not in the request** (Basal `choice` returns an unknown key, Granite returns text without `<score>`) → the client raises, the control applies `on_error`; it never treats it as "public" or "consistent" — Task 2 and Task 3 tests `test_basal_unknown_choice_is_an_error`, `test_granite_without_score_tag_is_an_error`.
 2. **The whole document is one huge chunk-boundary case** (the injection sits exactly across the split point) → overlap keeps the phrase intact in at least one chunk — Task 1 test `test_phrase_across_the_boundary_survives_in_one_chunk`.
 3. **A live policy switch to a model that lacks a built-in rule** (`sem.prompt_injection.model: basal` with `jailbreak: builtin`) → policy accepted, warning `rule.skipped` in `policy.reloaded`, other rules still evaluated — Task 4 test `test_builtin_rule_on_basal_is_a_warning_not_an_error` and Task 6 test `test_builtin_rule_is_skipped_for_models_without_it`.
-4. **A PDF that is not what it claims** (renamed `.txt`, encrypted, image-only with no text layer) → `415` or status `additional_verification`, never an empty "clean" document — Task 12 tests `test_not_a_pdf_and_a_pdf_without_text`, `test_encrypted_pdf_is_unavailable`.
+4. **A PDF that is not what it claims** (renamed `.txt`, encrypted, image-only with no text layer) → `415` or status `additional_verification`, never an empty "clean" document — Task 12 tests `test_not_a_pdf_and_a_pdf_without_text`, `test_encrypted_pdf_is_unavailable`; Task 14 tests `test_files_that_are_not_readable_pdfs_are_explained` and the UI test `rejects a file that only pretends to be a PDF`.
 5. **The live registry is down during the demo** (`KRS_LIVE=1`, no network) → the tool answers `unavailable`, the agent stops with `additional_verification`; the file is never used as a silent fallback — Task 10 test `test_live_failure_never_falls_back_to_the_file`, Task 13 test `test_unknown_registry_number_stops_for_additional_verification`.
 
 ---
@@ -72,7 +72,7 @@ src/harness/
   kyc/
     pdf_text_extraction.py
     mock_decision_rules.py                # domain phrases for MockDecisionClient (MODEL=mock)
-    data.py, tools.py, server.py, mock_model.py, agent.py (modified)
+    data.py, tools.py, server.py, mock_model.py, agent.py, runner.py (modified; runner reads a Playground PDF)
   demo_scenarios/
     demo_environment.py
     clean_registry_extract.py
@@ -83,7 +83,7 @@ src/harness/
     run_all_demo_scenarios.py
     evaluate_decision_models.py           # make eval-models
 docs/superpowers/notes/2026-10-04-decision-models-spike.md
-ui/src/aiInfo.ts (new), ui/src/api/types.ts, components/WhyBlocked.tsx, components/ChatPanel.tsx, components/ControlsPanel.tsx (modified)
+ui/src/aiInfo.ts (new), ui/src/api/types.ts, ui/src/api/client.ts, components/WhyBlocked.tsx, components/ChatPanel.tsx (PDF attachments), components/ControlsPanel.tsx, ui/mock/handler.mjs (modified)
 ```
 
 Module paths checked against `main` at be28a3c (2026-10-04): `src/foureyes/posture.py` (`compute`), `src/foureyes/api/admin.py` (`_posture`, `/admin/controls`, `/admin/chat`), `src/foureyes/cli.py` (`build`, `main`), `src/foureyes/bootstrap.py` (`build_services`). Rebase this branch on `main` before executing.
@@ -3189,9 +3189,256 @@ git commit -m "feat: KYC agent checks the company registry before creating the e
 
 ---
 
-### Task 14: (removed) Client portal API
+### Task 14: Playground takes PDF attachments
 
-Dropped on 2026-10-04: documents reach the agent through the **Playground** that is already in the repo (`/admin/chat`, document mode, UI tab "Playground"), and the demo scenarios drive the KYC agent directly (Task 15). No portal code is written.
+Replaces the dropped client portal (spec §7): the Playground that is already in the repo becomes the place to drop a client PDF. The browser sends the file as base64; the gateway hands the bytes to the harness, which extracts the text layer (Task 12) and starts the KYC agent session as for a pasted text. The core never imports `pypdf`.
+
+**Files:**
+- Create: `tests/test_playground_pdf.py`
+- Modify: `src/foureyes/api/admin.py` (`/admin/chat` document mode accepts `file`), `src/harness/kyc/runner.py` (`pdf` argument), `ui/src/api/client.ts`, `ui/src/components/ChatPanel.tsx`, `ui/src/components/ChatPanel.test.tsx`, `ui/mock/handler.mjs`
+
+**Interfaces:**
+- Consumes: `extract_pdf_text`, `NotAPdf`, `PdfTextUnavailable` (Task 12; both are `ValueError`s); `make_document_runner` (backend Task 15, `"ai": None` from Task 9).
+- Produces:
+  - `POST /admin/chat` body `{mode: "document", text: "", file: {name, content_type: "application/pdf", content_base64}}`; answers `400` (bad base64 / `file` not an object), `413` (> 5 MB), `422` with `{"error": {"message": ...}}` when the file cannot be read as a PDF with text; otherwise the usual document-mode result
+  - document runner `run(text: str, session_id: str, pdf: bytes | None = None) -> dict`
+  - UI: `Attachment.pdfBase64?: string`; `api.chat` body field `file?: {name; content_type; content_base64}`; `readAttachment` accepts `.pdf` up to 5 MB and checks the `%PDF-` header in the browser
+
+- [ ] **Step 1: Write failing backend tests `tests/test_playground_pdf.py`**
+
+```python
+import base64
+import io
+
+from reportlab.pdfgen import canvas
+
+from harness.demo_documents import PDF_DIR
+from harness.kyc.runner import make_document_runner
+from helpers import KYC_PHRASES, kyc_gateway
+
+
+def playground(tmp_path):
+    gw = kyc_gateway(tmp_path)
+    gw.services.document_runner = make_document_runner(gw.client, gw.kyc, "k-kyc")
+    return gw.client
+
+
+def pdf_body(name, data=None):
+    data = data if data is not None else (PDF_DIR / name).read_bytes()
+    return {"mode": "document", "text": "",
+            "file": {"name": name, "content_type": "application/pdf", "content_base64": base64.b64encode(data).decode()}}
+
+
+def blank_pdf() -> bytes:
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf)
+    c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def test_injected_pdf_dropped_in_the_playground_is_stopped_and_held(tmp_path):
+    body = playground(tmp_path).post("/admin/chat", json=pdf_body("nordwind_krs_injected.pdf")).json()
+    assert body["decision"] == "APPROVAL" and body["message"] == "awaiting_approval"
+    assert [(s["tool"], s["code"]) for s in body["steps"]][1:] == [("entities_submit", "TOOL_ORDER"),
+                                                                   ("send_email", "APPROVAL_REQUIRED")]
+    assert body["data_class"] == "bank_secret"
+
+
+def test_clean_pdf_follows_the_normal_flow(tmp_path):
+    body = playground(tmp_path).post("/admin/chat", json=pdf_body("nordwind_krs_clean.pdf")).json()
+    assert body["message"] == "awaiting_approval"  # strict profile: a human signs the submission
+    assert all(s["code"] != "TOOL_ORDER" for s in body["steps"])
+
+
+def test_files_that_are_not_readable_pdfs_are_explained(tmp_path):
+    client = playground(tmp_path)
+    r = client.post("/admin/chat", json=pdf_body("fake.pdf", b"hello, I am text"))
+    assert r.status_code == 422 and "not a PDF" in r.json()["error"]["message"]
+    r = client.post("/admin/chat", json=pdf_body("blank.pdf", blank_pdf()))
+    assert r.status_code == 422 and "no text layer" in r.json()["error"]["message"]
+
+
+def test_bad_base64_and_too_big(tmp_path):
+    client = playground(tmp_path)
+    bad = {"mode": "document", "text": "", "file": {"name": "x.pdf", "content_type": "application/pdf",
+                                                    "content_base64": "%%% not base64"}}
+    assert client.post("/admin/chat", json=bad).status_code == 400
+    big = pdf_body("big.pdf", b"%PDF-1.4\n" + b"0" * (5 * 1024 * 1024))
+    assert client.post("/admin/chat", json=big).status_code == 413
+
+
+def test_pasted_text_documents_still_work(tmp_path):
+    body = playground(tmp_path).post("/admin/chat", json={"mode": "document", "text": "Note. " + KYC_PHRASES[0]}).json()
+    assert body["steps"] and body["session_id"]
+```
+
+- [ ] **Step 2: Run tests to verify they fail**
+
+Run: `pytest tests/test_playground_pdf.py`
+Expected: FAIL (the document runner does not accept `file`; the PDF body is treated as empty text).
+
+- [ ] **Step 3: Accept the file in `/admin/chat`**
+
+`api/admin.py` — add `import base64` and `import binascii` at the top, a constant `MAX_UPLOAD_BYTES = 5 * 1024 * 1024`, and replace the `if mode == "document":` block with:
+```python
+    if mode == "document":
+        if s.document_runner is None:
+            return JSONResponse({"error": "no harness runner is configured for document mode"}, status_code=501)
+        upload = body.get("file")
+        if upload is None:
+            return s.document_runner(text=text, session_id=sid)
+        if not isinstance(upload, dict):
+            raise HTTPException(400, "file must be an object with name, content_type and content_base64")
+        try:
+            pdf = base64.b64decode(str(upload.get("content_base64", "")), validate=True)
+        except (binascii.Error, ValueError):
+            raise HTTPException(400, "file.content_base64 is not valid base64")
+        if len(pdf) > MAX_UPLOAD_BYTES:
+            return JSONResponse({"error": {"message": "the file is larger than 5 MB"}}, status_code=413)
+        try:
+            return s.document_runner(text=text, session_id=sid, pdf=pdf)
+        except ValueError as exc:  # the harness could not read it: not a PDF, encrypted, no text layer
+            return JSONResponse({"error": {"message": str(exc)}}, status_code=422)
+```
+
+- [ ] **Step 4: Read the PDF in the harness runner**
+
+`harness/kyc/runner.py` — add `from .pdf_text_extraction import extract_pdf_text` and change the inner function's signature and first lines:
+```python
+    def run(text: str, session_id: str, pdf: bytes | None = None) -> dict:
+        if pdf is not None:
+            text = extract_pdf_text(pdf)  # raises NotAPdf / PdfTextUnavailable (ValueError) -> 422
+        doc_id = f"upload-{uuid.uuid4().hex[:6]}"
+```
+(the rest of the function stays as it is).
+
+- [ ] **Step 5: Run the backend tests**
+
+Run: `pytest tests/test_playground_pdf.py tests/test_harness_kyc.py tests/test_admin_api.py`
+Expected: PASS.
+
+- [ ] **Step 6: Write the failing UI tests**
+
+In `ui/src/components/ChatPanel.test.tsx`, in the test `"explains a file it cannot read instead of failing silently"`, replace its first three expectations (the `scan.pdf` lines) with:
+```tsx
+    fireEvent.change(input(), { target: { files: [file("scan.png", "PNG", "image/png")] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent("scan.png is not a text or PDF file");
+    expect(screen.getByRole("alert")).toHaveTextContent(".pdf, .txt, .md, .csv, .json, .eml and .log");
+    expect(screen.queryByText("scan.png")).not.toBeInTheDocument();
+```
+and append a new block:
+```tsx
+describe("PDF attachments", () => {
+  it("sends a PDF as a file for the gateway to read", async () => {
+    vi.mocked(api.chat).mockResolvedValue(docResult());
+    render(<ChatPanel />);
+    fireEvent.change(input(), { target: { files: [file("odpis.pdf", "%PDF-1.4 body", "application/pdf")] } });
+    expect(await screen.findByText("odpis.pdf")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+    const body = vi.mocked(api.chat).mock.calls[0][0];
+    expect(body.mode).toBe("document");
+    expect(body.file).toEqual({ name: "odpis.pdf", content_type: "application/pdf", content_base64: btoa("%PDF-1.4 body") });
+  });
+
+  it("rejects a file that only pretends to be a PDF, and a PDF over 5 MB", async () => {
+    render(<ChatPanel />);
+    fireEvent.change(input(), { target: { files: [file("fake.pdf", "hello", "application/pdf")] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent("fake.pdf is not a PDF file");
+    fireEvent.change(input(), { target: { files: [file("huge.pdf", "%PDF-" + "0".repeat(5 * 1024 * 1024), "application/pdf")] } });
+    expect(await screen.findByRole("alert")).toHaveTextContent("The limit for a PDF is 5120 KB");
+    expect(api.chat).not.toHaveBeenCalled();
+  });
+});
+```
+
+Run: `cd ui && npx vitest run src/components/ChatPanel.test.tsx`
+Expected: FAIL (PDFs are still rejected as non-text files).
+
+- [ ] **Step 7: Implement the UI change**
+
+`ui/src/api/client.ts` — widen the `chat` body type:
+```ts
+  chat: (body: { mode: "prompt" | "document"; text: string; session_id?: string; model?: string;
+                 file?: { name: string; content_type: string; content_base64: string } }) =>
+    request<ChatResult>("/admin/chat", { method: "POST", body: JSON.stringify(body) }),
+```
+
+`ui/src/components/ChatPanel.tsx`:
+- Replace the `Attachment` interface and `readAttachment` with:
+```tsx
+/** A file waiting to be sent. The gateway reads it as an untrusted client document (a PDF is read on the server). */
+interface Attachment { name: string; size: number; text: string; pdfBase64?: string }
+
+const MAX_BYTES = 200 * 1024;
+const PDF_MAX_BYTES = 5 * 1024 * 1024;
+const TEXT_EXT = /\.(txt|md|csv|json|eml|log|xml|html?)$/i;
+const isPdf = (file: File): boolean => /\.pdf$/i.test(file.name) || file.type === "application/pdf";
+
+function readAs<T>(file: File, how: "text" | "bytes"): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as T);
+    r.onerror = () => reject(new Error(`Could not read ${file.name}.`));
+    if (how === "text") r.readAsText(file); else r.readAsArrayBuffer(file);
+  });
+}
+
+function toBase64(bytes: Uint8Array): string {
+  let s = "";
+  for (let i = 0; i < bytes.length; i += 0x8000) s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
+  return btoa(s);
+}
+
+/** Reads a client file in the browser. Rejects anything this demo cannot send, with a message that says what to do. */
+export async function readAttachment(file: File): Promise<Attachment> {
+  if (isPdf(file)) {
+    if (file.size > PDF_MAX_BYTES) throw new Error(`${file.name} is ${kb(file.size)}. The limit for a PDF is ${kb(PDF_MAX_BYTES)}.`);
+    const bytes = new Uint8Array(await readAs<ArrayBuffer>(file, "bytes"));
+    if (String.fromCharCode(...bytes.subarray(0, 5)) !== "%PDF-") throw new Error(`${file.name} is not a PDF file.`);
+    return { name: file.name, size: file.size, text: "", pdfBase64: toBase64(bytes) };
+  }
+  if (!TEXT_EXT.test(file.name) && !file.type.startsWith("text/")) {
+    throw new Error(`${file.name} is not a text or PDF file. This demo reads .pdf, .txt, .md, .csv, .json, .eml and .log files.`);
+  }
+  if (file.size > MAX_BYTES) throw new Error(`${file.name} is ${kb(file.size)}. The limit is ${kb(MAX_BYTES)}.`);
+  const text = String((await readAs<string>(file, "text")) ?? "");
+  if (!text.trim()) throw new Error(`${file.name} is empty.`);
+  return { name: file.name, size: file.size, text };
+}
+```
+- In `send`, replace the document call with:
+```tsx
+      const result = attachment
+        ? await api.chat({ mode: "document", text: attachment.text, session_id: undefined, // a file is a fresh client upload
+            ...(attachment.pdfBase64
+              ? { file: { name: attachment.name, content_type: "application/pdf", content_base64: attachment.pdfBase64 } }
+              : {}) })
+        : await api.chat({ mode: "prompt", text, session_id: sessionId });
+```
+
+`ui/mock/handler.mjs` — in `chat`, let the mock recognise a dropped PDF by its name: replace the first line of the function body after `state.chats += 1;` with
+```js
+    const text = String(body.text ?? ""), low = `${text} ${body.file?.name ?? ""}`.toLowerCase();
+```
+and extend the poisoned check to `low.includes("skip sanctions") || low.includes("ignore") || low.includes("injected")`.
+
+- [ ] **Step 8: Run the UI tests and the type check**
+
+Run: `cd ui && npx vitest run && npm run typecheck`
+Expected: PASS.
+
+- [ ] **Step 9: Try it by hand**
+
+With the gateway running (`MODEL=mock make run`, or the Docker line from the README) and the UI from `cd ui && npm run dev` (http://127.0.0.1:5173/ui/), open **Playground** and drop `src/harness/demo_documents/pdf/nordwind_krs_injected.pdf` onto the page.
+Expected: the result shows read ALLOW → submit BLOCK `TOOL_ORDER` → email held for a human; **Open session** shows `high_risk`. Drop a `.png`: the message says which files are accepted. The bundle the gateway serves at `/ui/` is rebuilt only at release time (`make ui`, per `ui/README.md`).
+
+- [ ] **Step 10: Commit**
+
+```bash
+git add src/foureyes/api/admin.py src/harness/kyc/runner.py tests/test_playground_pdf.py ui/src/api/client.ts ui/src/components/ChatPanel.tsx ui/src/components/ChatPanel.test.tsx ui/mock/handler.mjs
+git commit -m "feat: drop a client PDF into the Playground; the harness reads its text layer"
+```
 
 ---
 
@@ -3210,7 +3457,7 @@ Dropped on 2026-10-04: documents reach the agent through the **Playground** that
   - `run_all(env) -> list[ScenarioResult]`, `format_table(results) -> str`, `main(argv=None) -> int`
   - `CANDIDATES: tuple[str, ...]`, `calibrate(client, model_name, conf, candidates=CANDIDATES) -> dict | None`
 
-The scenarios play the role of the KYC agent's caller: they run `run_kyc_agent` against the gateway over HTTP (as any external agent would) with a PDF-backed document id, then read the session from the admin API. The same documents can be tried by hand in the Playground.
+The scenarios play the role of the KYC agent's caller: they run `run_kyc_agent` against the gateway over HTTP (as any external agent would) with a PDF-backed document id, then read the session from the admin API. The same PDFs can be dropped by hand into the Playground (Task 14).
 
 - [ ] **Step 1: Add the developer agent to `policy.yaml`**
 
@@ -3568,7 +3815,7 @@ Expected: PASS (both profiles). If a check fails, the assertion message is the `
 - [ ] **Step 9: Run the demo end to end on mocks**
 
 Run: `MODEL=mock make run` (keep running; on a machine without Python 3.11+ use the Docker command from the README), then in another terminal `make demo`
-Expected: five `PASS` lines and exit code 0; the sessions appear live in the dashboard (Security view). The same PDFs' text can be tried by hand in the Playground (document mode).
+Expected: five `PASS` lines and exit code 0; the sessions appear live in the dashboard (Security view). The same PDFs can be dropped by hand into the Playground (Task 14).
 
 - [ ] **Step 10: Commit**
 
@@ -3997,15 +4244,15 @@ git commit -m "feat(ui): show the decision model, rule and confidence in Why, ch
 | §4.1–4.3 semantics, uncertainty to the stricter side, `rule.skipped` warning | 4, 6, 7, 8 |
 | §4.4 chunks | 1, 6, 7 |
 | §4.5 audit `ai`, latency, posture −10 per model | 5, 6, 9 |
-| §5 fail-closed table (timeouts, no `<score>`, hard label, classifier exception, bad PDF, live registry down) | 2, 3, 7, 10, 12, 13 |
+| §5 fail-closed table (timeouts, no `<score>`, hard label, classifier exception, bad PDF, live registry down) | 2, 3, 7, 10, 12, 13, 14 |
 | §6.1 registries, live opt-in, `uk_registry_lookup` as config | 10, 11 |
 | §6.2 fictional companies, number checks | 10 |
 | §6.3 four PDFs, calibration, extraction of hidden text | 12, 15 |
 | §6.4 file layout, harness-only deps | 10, 12, 15 |
 | §6 agent registry step | 13 |
-| §7 portal contract | dropped: documents go through the existing Playground; scenarios drive the agent directly (15) |
+| §7 portal contract | replaced by PDF upload in the existing Playground (14); scenarios drive the agent directly (15) |
 | §8.1–8.3 scenarios, developer, `make demo`, live switch | 6 (live switch test), 15 |
-| §9 tests (clients, controls, validator, chunks, harness, scenarios on mocks, architecture) | 1–13, 15; architecture test unchanged (core imports nothing from harness) |
+| §9 tests (clients, controls, validator, chunks, harness, scenarios on mocks, architecture) | 1–15; architecture test unchanged (core imports nothing from harness) |
 | §9 `make eval-models` | 16 |
 | §10 docs and UI changes | 16, 17 |
 | §10 step 0 spike | 0 |
@@ -4013,5 +4260,5 @@ git commit -m "feat(ui): show the decision model, rule and confidence in Why, ch
 Known deviations, decided while planning:
 - The evaluation lives in `harness/demo_scenarios/evaluate_decision_models.py` (run by `make eval-models`), not in `scripts/`, so it is importable and tested.
 - The brief file in the repo root is untracked; it is not edited by this plan. The gateway spec gets a pointer to the delta spec instead.
-- The client portal (spec §7) is dropped: the Playground already takes client documents (document mode).
+- The client portal (spec §7) is dropped: the existing Playground takes client PDFs instead (Task 14).
 - `make demo MODEL=mock` from the spec is two commands: `MODEL=mock make run` (server) and `make demo` (scenarios); the same scenarios also run inside `make test`.
