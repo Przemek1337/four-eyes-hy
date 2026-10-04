@@ -7,7 +7,9 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "mock": "node mock/server.mjs",
+    "dev:mock": "node mock/dev.mjs"
   },
   "dependencies": {
     "@fontsource/inter": "^5.1.0",
