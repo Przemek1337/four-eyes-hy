@@ -17,3 +17,10 @@ INDEX = [  # shared document index used by search_documents
     {"client_id": "C2", "text": "Baltic Freight S.A. beneficial owner declaration"},
     {"client_id": "C3", "text": "Tatra Logistics Sp. z o.o. bank statements"},
 ]
+
+CLIENTS = {
+    "C1": CASE,
+    "C4": {"client_id": "C4", "legalName": "Thames Freight Ltd", "legalStructure": "ltd", "country": "GB"},
+}
+DIRECTORS = {"C1": DIRECTOR, "C4": {"name": "Oliver Grant", "passport_no": "GB1234567"}}
+CLIENT_BY_REGISTRY = {("krs", "0099000001"): "C1", ("companies_house", "99000001"): "C4"}

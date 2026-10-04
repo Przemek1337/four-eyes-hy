@@ -47,6 +47,7 @@ sources:
   mcp:search_documents:        { class: personal_data }
   mcp:sanctions_check:         { class: public }
   mcp:public_registry_lookup:  { class: public }
+  mcp:uk_registry_lookup:      { class: public }
   channel:chat:                { class: public }
   channel:document:            { class: bank_secret, labels: [untrusted] }
   default_class: bank_secret      # an unknown source counts as the most sensitive (fail closed)
@@ -65,7 +66,7 @@ agents:
     team: compliance
     tools: [entities_create, entities_get, entities_documents_read, entities_submit,
             sanctions_check, send_email, update_case_notes, search_documents,
-            load_model, public_registry_lookup]
+            load_model, public_registry_lookup, uk_registry_lookup]
     scope: { key: client_id, mode: case_only }
   playground-agent:                     # the judges' chat: the same policy as every other agent
     key_ref: PLAYGROUND_AGENT_KEY
@@ -73,7 +74,7 @@ agents:
     team: compliance
     tools: [entities_create, entities_get, entities_documents_read, entities_submit,
             sanctions_check, send_email, update_case_notes, search_documents,
-            load_model, public_registry_lookup]
+            load_model, public_registry_lookup, uk_registry_lookup]
     scope: { key: client_id, mode: case_only }
 
 # Tags and constraints per tool. The core knows nothing about what a tool means: policy says it.
@@ -88,7 +89,7 @@ tools:
       additionalProperties: false
       properties:
         legalName:      { type: string, minLength: 2 }
-        legalStructure: { enum: [sp_zoo, sa, sole_trader] }
+        legalStructure: { enum: [sp_zoo, sa, sole_trader, ltd] }
         country:        { enum: [PL, DE, CZ, SK, GB, US] }
         client_id:      { type: string }
   entities_submit:   { tags: [critical], requires_before: [sanctions_check] }

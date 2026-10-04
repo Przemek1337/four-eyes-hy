@@ -2,13 +2,22 @@ from __future__ import annotations
 
 import uuid
 
+from harness.company_registries.companies_house_registry_lookup import CompaniesHouseRegistryLookup
+from harness.company_registries.krs_registry_lookup import KrsRegistryLookup
+from harness.company_registries.registry_lookup_port import lookup_result
+from harness.demo_documents import REGISTRY_EXTRACTS_DIR
+
 from . import data
 
 
 class KycTools:
     """Mock tools modelled on a public bank onboarding API: create entity → documents → submit → status."""
 
-    def __init__(self) -> None:
+    def __init__(self, registries: dict | None = None) -> None:
+        self.registries = registries or {
+            "krs": KrsRegistryLookup.from_env(REGISTRY_EXTRACTS_DIR),
+            "companies_house": CompaniesHouseRegistryLookup.from_env(REGISTRY_EXTRACTS_DIR),
+        }
         self.documents = dict(data.DOCUMENTS)
         self.entities: dict[str, dict] = {}
         self.sent: list[dict] = []
@@ -18,7 +27,7 @@ class KycTools:
     def handlers(self) -> dict:
         return {name: getattr(self, name) for name in (
             "entities_create", "entities_get", "entities_documents_read", "entities_submit", "sanctions_check",
-            "send_email", "update_case_notes", "search_documents", "load_model", "public_registry_lookup")}
+            "send_email", "update_case_notes", "search_documents", "load_model", "public_registry_lookup", "uk_registry_lookup")}
 
     def schemas(self) -> dict:
         obj = lambda props, req=(): {"type": "object", "properties": props, "required": list(req)}  # noqa: E731
@@ -34,7 +43,8 @@ class KycTools:
             "update_case_notes": obj({"note": s, "case_status": s}, ("note",)),
             "search_documents": obj({"query": s, "client_id": s}, ("query", "client_id")),
             "load_model": obj({"path": s, "source": s}, ("path",)),
-            "public_registry_lookup": obj({"name": s}, ("name",)),
+            "public_registry_lookup": obj({"krs_number": s}, ("krs_number",)),
+            "uk_registry_lookup": obj({"company_number": s}, ("company_number",)),
         }
 
     def entities_create(self, legalName, legalStructure, country, client_id=None):
@@ -44,9 +54,10 @@ class KycTools:
         return {"entity_id": eid, "status": "DRAFT"}
 
     def entities_get(self, client_id):
-        return {"client_id": client_id, "legalName": data.CASE["legalName"], "director": data.DIRECTOR["name"],
-                "pesel": data.DIRECTOR["pesel"], "passport_no": data.DIRECTOR["passport_no"],
-                "iban": data.DIRECTOR["iban"]}
+        client = data.CLIENTS.get(client_id, data.CASE)
+        director = data.DIRECTORS.get(client_id, data.DIRECTOR)
+        return {"client_id": client_id, "legalName": client["legalName"], "director": director["name"],
+                **{k: director[k] for k in ("pesel", "passport_no", "iban") if k in director}}
 
     def entities_documents_read(self, client_id, document_id="nordwind-clean"):
         return {"document_id": document_id, "text": self.documents.get(document_id, data.CLEAN_DOC)}
@@ -72,5 +83,8 @@ class KycTools:
         self.loaded_models.append(path)
         return {"loaded": True}
 
-    def public_registry_lookup(self, name):
-        return {"name": name, "status": "active", "registry_number": "KRS-0000000000"}
+    def public_registry_lookup(self, krs_number):
+        return lookup_result(self.registries["krs"], krs_number)
+
+    def uk_registry_lookup(self, company_number):
+        return lookup_result(self.registries["companies_house"], company_number)
