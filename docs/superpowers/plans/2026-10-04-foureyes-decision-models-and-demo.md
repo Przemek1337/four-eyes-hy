@@ -55,7 +55,7 @@ src/foureyes/  (modified)
   core/context.py (Services.decision_models)
   controls/classify.py, controls/sem_injection.py, controls/sem_judge.py
   engine.py (event field `ai`), api/admin.py (chat `ai`, controls `model`, posture per model)
-  ops/posture.py (penalty per model), bootstrap.py, cli.py
+  posture.py (penalty per model), bootstrap.py, cli.py
 src/harness/
   company_registries/
     registry_lookup_port.py
@@ -90,7 +90,7 @@ docs/superpowers/notes/2026-10-04-decision-models-spike.md
 ui/src/aiInfo.ts (new), ui/src/api/types.ts, components/WhyBlocked.tsx, components/ChatPanel.tsx, components/ControlsPanel.tsx (modified)
 ```
 
-`ops/posture.py` and `api/admin.py` are the module names from backend Task 14; if the executed repo placed `compute` or `_posture` elsewhere, modify the file that defines them (search: `grep -rn "def compute(snapshot" src/foureyes`, `grep -rn "def _posture" src/foureyes`).
+Module paths checked against `main` at be28a3c (2026-10-04): `src/foureyes/posture.py` (`compute`), `src/foureyes/api/admin.py` (`_posture`, `/admin/controls`, `/admin/chat`), `src/foureyes/cli.py` (`build`, `main`), `src/foureyes/bootstrap.py` (`build_services`). Rebase this branch on `main` before executing.
 
 ---
 
@@ -1100,7 +1100,7 @@ git commit -m "feat: decision_models in the policy with validation, warnings and
 
 **Files:**
 - Create: `src/foureyes/semantic/decision_model_registry.py`, `tests/test_decision_model_registry.py`
-- Modify: `src/foureyes/core/context.py`, `src/foureyes/bootstrap.py`, `src/foureyes/ops/posture.py`, `src/foureyes/api/admin.py`, `tests/helpers.py`
+- Modify: `src/foureyes/core/context.py`, `src/foureyes/bootstrap.py`, `src/foureyes/posture.py`, `src/foureyes/api/admin.py`, `tests/helpers.py`
 
 **Interfaces:**
 - Consumes: clients (Tasks 1–3), `model_refs`, `LEGACY_MODELS` (Task 4), `PolicySnapshot.decision_model_cfg` (Task 4).
@@ -1117,7 +1117,7 @@ git commit -m "feat: decision_models in the policy with validation, warnings and
 ```python
 import httpx
 
-from foureyes.ops.posture import compute
+from foureyes.posture import compute
 from foureyes.semantic.basal_decision_client import BasalDecisionClient
 from foureyes.semantic.decision_model_registry import DecisionModelRegistry
 from foureyes.semantic.granite_guardian_decision_client import GraniteGuardianDecisionClient
@@ -1256,7 +1256,7 @@ def build_services(policy_path, *, audit_path, meter_path: str = ":memory:", ups
 ```
 and in the `Services(...)` call add `decision_models=decision_models`.
 
-`ops/posture.py` — extend `compute`:
+`posture.py` — extend `compute`:
 ```python
 def compute(snapshot, *, ai_healthy: bool, feed_status: dict, tests: dict | None,
             ai_models_down: tuple[str, ...] | list[str] = ()) -> dict:
@@ -1301,7 +1301,7 @@ Expected: PASS.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add src/foureyes/semantic/decision_model_registry.py src/foureyes/core/context.py src/foureyes/bootstrap.py src/foureyes/ops/posture.py src/foureyes/api/admin.py tests/helpers.py tests/test_decision_model_registry.py
+git add src/foureyes/semantic/decision_model_registry.py src/foureyes/core/context.py src/foureyes/bootstrap.py src/foureyes/posture.py src/foureyes/api/admin.py tests/helpers.py tests/test_decision_model_registry.py
 git commit -m "feat: decision model registry on services and a posture penalty per down model"
 ```
 
