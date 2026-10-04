@@ -16,6 +16,7 @@ from foureyes.core.types import Request
 from foureyes.owasp import CONTROL_OWASP, coverage
 from foureyes.policy.catalog import CATALOG_IDS
 from foureyes.posture import WEIGHTS, compute
+from foureyes.semantic.decision_model_types import LEGACY_MODELS, model_refs
 from foureyes.signatures.feed import KNOWN_TYPES
 
 router = APIRouter()
@@ -261,14 +262,21 @@ def controls(http: HttpRequest):
     return {"controls": rows, "last_diff": reloads[-1]["diff"] if reloads else []}
 
 
+def _uses_legacy(snap, cid: str, registry) -> bool:
+    name = model_refs(snap.controls).get(cid)
+    return snap.has_control(cid) and (registry is None or name is None or name in LEGACY_MODELS.get(cid, ()))
+
+
 def _posture(s) -> dict:
     snap = s.policy_store.current()
+    registry = s.decision_models
     ai_ok = True
-    if snap.has_control("sem.prompt_injection"):
+    if _uses_legacy(snap, "sem.prompt_injection", registry):
         ai_ok &= bool(s.injection.healthy())
-    if snap.has_control("sem.action_judge"):
+    if _uses_legacy(snap, "sem.action_judge", registry):
         ai_ok &= bool(s.judge.healthy())
-    return compute(snap, ai_healthy=ai_ok, feed_status=s.feed.status(), tests=_read_report())
+    down = [n for n, ok in (registry.health(snap) if registry else {}).items() if not ok]
+    return compute(snap, ai_healthy=ai_ok, feed_status=s.feed.status(), tests=_read_report(), ai_models_down=down)
 
 
 @router.get("/admin/posture")

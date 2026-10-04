@@ -9,10 +9,11 @@ WEIGHTS = {
 }
 PENALTY = 10
 FORMULA = ("score = 100 − Σ(control weight share: removed = full, monitor = half) "
-           "− 10 if the signature feed is stale/failed − 10 if an AI control model is down − 10 if tests fail")
+           "− 10 if the signature feed is stale/failed − 10 per AI decision model that is down − 10 if tests fail")
 
 
-def compute(snapshot, *, ai_healthy: bool, feed_status: dict, tests: dict | None) -> dict:
+def compute(snapshot, *, ai_healthy: bool, feed_status: dict, tests: dict | None,
+            ai_models_down: tuple[str, ...] | list[str] = ()) -> dict:
     total = sum(WEIGHTS.values())
     score, breakdown = 100.0, []
     for cid, weight in WEIGHTS.items():
@@ -32,6 +33,9 @@ def compute(snapshot, *, ai_healthy: bool, feed_status: dict, tests: dict | None
     if not ai_healthy:
         score -= PENALTY
         breakdown.append({"item": "AI control model", "delta": -PENALTY, "note": "unavailable (fail-closed)"})
+    for name in ai_models_down:
+        score -= PENALTY
+        breakdown.append({"item": f"AI model {name}", "delta": -PENALTY, "note": "unavailable (fail-closed)"})
     if tests and tests.get("failed"):
         score -= PENALTY
         breakdown.append({"item": "test suite", "delta": -PENALTY, "note": f"{tests['failed']} failing"})

@@ -19,7 +19,7 @@ from foureyes.upstream.mock import MockModelUpstream
 
 
 def build_services(policy_path, *, audit_path, meter_path: str = ":memory:", upstreams=None, injection=None,
-                   judge=None, router=None, base_dir=None) -> Services:
+                   judge=None, router=None, base_dir=None, decision_models=None) -> Services:
     policy_path = Path(policy_path)
     holder: dict = {}
     store = PolicyStore(policy_path, on_event=lambda e: holder["audit"].emit(e), base_dir=base_dir)
@@ -32,4 +32,4 @@ def build_services(policy_path, *, audit_path, meter_path: str = ":memory:", ups
     return Services(policy_store=store, sessions=SessionStore(), meter=MeterStore(meter_path),
                     approvals=ApprovalService(), audit=audit, telemetry=Telemetry(), feed=feed,
                     upstreams=upstreams, router=router or RuleBasedRouter(), anonymizer=NoOpAnonymizer(),
-                    injection=injection or MockInjectionScorer(), judge=judge or MockJudge())
+                    injection=injection or MockInjectionScorer(), judge=judge or MockJudge(), decision_models=decision_models)

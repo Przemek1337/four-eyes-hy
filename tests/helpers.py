@@ -80,7 +80,7 @@ def default_tools() -> FakeToolUpstream:
 
 
 def make_gateway(tmp_path, overrides=None, remove_controls=(), tools=None, injection=None, judge=None, router=None,
-                 local_script=None):
+                 local_script=None, decision_models=None):
     import yaml
     _os.environ.setdefault("KYC_AGENT_KEY", "k-kyc")
     _os.environ.setdefault("PLAYGROUND_AGENT_KEY", "k-play")
@@ -91,7 +91,7 @@ def make_gateway(tmp_path, overrides=None, remove_controls=(), tools=None, injec
     services = build_services(path, audit_path=tmp_path / "audit.jsonl", base_dir=ROOT,
                               upstreams=UpstreamRegistry({"local": local, "external": external}, tools or default_tools()),
                               injection=injection or MockInjectionScorer(extra_patterns=KYC_PHRASES),
-                              judge=judge, router=router)
+                              judge=judge, router=router, decision_models=decision_models)
     client = TestClient(create_app(services))
     return SimpleNamespace(client=client, services=services, local=local, external=external,
                            policy_path=path, headers={"Authorization": "Bearer k-kyc"})

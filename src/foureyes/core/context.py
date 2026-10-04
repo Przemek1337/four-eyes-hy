@@ -22,6 +22,7 @@ class Services:
     anonymizer: Any = None
     injection: Any = None
     judge: Any = None
+    decision_models: Any = None  # DecisionModelRegistry; None keeps the legacy injection/judge path
     document_runner: Any = None
     chat_agent: Any = None
 
