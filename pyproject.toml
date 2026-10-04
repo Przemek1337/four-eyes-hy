@@ -14,6 +14,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
 ml = ["transformers>=4.40", "torch>=2.2"]
+harness = ["reportlab>=4.0", "pypdf>=4.0", "python-multipart>=0.0.9"]
 
 [project.scripts]
 foureyes = "foureyes.cli:main"

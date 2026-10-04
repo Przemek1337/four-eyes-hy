@@ -5,9 +5,10 @@ import uuid
 from harness.company_registries.companies_house_registry_lookup import CompaniesHouseRegistryLookup
 from harness.company_registries.krs_registry_lookup import KrsRegistryLookup
 from harness.company_registries.registry_lookup_port import lookup_result
-from harness.demo_documents import REGISTRY_EXTRACTS_DIR
+from harness.demo_documents import PDF_DIR, REGISTRY_EXTRACTS_DIR
 
 from . import data
+from .pdf_text_extraction import extract_pdf_text
 
 
 class KycTools:
@@ -60,6 +61,8 @@ class KycTools:
                 **{k: director[k] for k in ("pesel", "passport_no", "iban") if k in director}}
 
     def entities_documents_read(self, client_id, document_id="nordwind-clean"):
+        if document_id not in self.documents and document_id in data.PDF_DOCUMENTS:
+            self.documents[document_id] = extract_pdf_text((PDF_DIR / data.PDF_DOCUMENTS[document_id]).read_bytes())
         return {"document_id": document_id, "text": self.documents.get(document_id, data.CLEAN_DOC)}
 
     def entities_submit(self, entity_id):

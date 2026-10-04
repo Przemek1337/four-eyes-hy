@@ -24,3 +24,10 @@ CLIENTS = {
 }
 DIRECTORS = {"C1": DIRECTOR, "C4": {"name": "Oliver Grant", "passport_no": "GB1234567"}}
 CLIENT_BY_REGISTRY = {("krs", "0099000001"): "C1", ("companies_house", "99000001"): "C4"}
+
+PDF_DOCUMENTS = {
+    "nordwind-krs-clean": "nordwind_krs_clean.pdf",
+    "nordwind-krs-injected": "nordwind_krs_injected.pdf",
+    "nordwind-krs-borderline": "nordwind_krs_borderline.pdf",
+    "thames-freight-clean": "thames_freight_companies_house_clean.pdf",
+}
