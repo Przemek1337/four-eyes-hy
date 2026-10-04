@@ -43,7 +43,7 @@ def test_pesel_raises_class_and_then_external_model_is_blocked(gw):
     r = chat(gw, "now summarise", session="p1", model="ext-gpt-sim")
     assert r.status_code == 403 and r.json()["error"]["code"] == "PRIVATE_DATA_EXTERNAL_MODEL"
     assert gw.external.calls == []
-    assert chat(gw, "now summarise", session="p1", model="basal-1.0-1.5B").status_code == 200
+    assert chat(gw, "now summarise", session="p1", model="qwen2.5:7b").status_code == 200
     assert len(gw.local.calls) == 2
 
 

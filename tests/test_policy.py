@@ -18,7 +18,7 @@ def test_sample_policy_is_valid_and_exposes_accessors():
     assert s.source_for("mcp:entities_get")["class"] == "personal_data"
     assert s.source_for("mcp:unknown_tool")["class"] == "bank_secret"
     assert s.provider_type("external") == "external"
-    assert s.default_local_model("kyc-agent") == "basal-1.0-1.5B"
+    assert s.default_local_model("kyc-agent") == "qwen2.5:7b"
     assert s.first_model_of_type("external") == "ext-gpt-sim"
     assert s.route_for("ext-gpt-sim", ["local", "external"]).type == "external"
     assert s.team_of("kyc-agent") == "compliance"

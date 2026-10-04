@@ -151,7 +151,7 @@ def test_policy_summary_groups(gw):
     assert set(s) == {"block_or_redact", "models", "budgets"}
     flat = {x["label"]: x["value"] for g in s.values() for x in g}
     assert flat["Prompt injection"] == "block above 0.8, log above 0.5"
-    assert flat["Local · basal-1.0-1.5B"] == "all data classes"
+    assert flat["Local · qwen2.5:7b"] == "all data classes"
     assert flat["External · ext-gpt-sim"] == "public data only"
     assert flat["kyc-agent"] == "$2.00 and 600 compute s a day"
     assert flat["Team compliance"] == "$50.00 a month"

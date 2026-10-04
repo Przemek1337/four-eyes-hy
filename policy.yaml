@@ -27,7 +27,8 @@ providers:
 # Allowed models. Anything not listed here is refused (models.allowlist).
 models:
   allowlist:
-    basal-1.0-1.5B: { provider: local }
+    qwen2.5:7b:  { provider: local }
+    qwen2.5:3b:  { provider: local }
     ext-gpt-sim: { provider: external }
 
 # Data classes, lowest to highest. A session's class only ever goes up, never down.
@@ -83,7 +84,7 @@ decision_models:
 agents:
   kyc-agent:
     key_ref: KYC_AGENT_KEY             # name of the environment variable holding the key
-    default_model: basal-1.0-1.5B
+    default_model: qwen2.5:7b
     team: compliance
     tools: [entities_create, entities_get, entities_documents_read, entities_submit,
             sanctions_check, send_email, update_case_notes, search_documents,
@@ -91,7 +92,7 @@ agents:
     scope: { key: client_id, mode: case_only }
   playground-agent:                     # the judges' chat: the same policy as every other agent
     key_ref: PLAYGROUND_AGENT_KEY
-    default_model: basal-1.0-1.5B
+    default_model: qwen2.5:7b
     team: compliance
     tools: [entities_create, entities_get, entities_documents_read, entities_submit,
             sanctions_check, send_email, update_case_notes, search_documents,
@@ -100,7 +101,7 @@ agents:
   aneta-dev-cli:                        # one entry per person/tool until human identity lands (remediation plan)
     key_ref: ANETA_DEV_CLI_KEY
     team: engineering
-    default_model: basal-1.0-1.5B
+    default_model: qwen2.5:3b
     tools: [public_registry_lookup, uk_registry_lookup]
 
 # Tags and constraints per tool. The core knows nothing about what a tool means: policy says it.

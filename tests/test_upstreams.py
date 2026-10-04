@@ -36,7 +36,7 @@ def test_openai_compat_posts_and_parses():
 
     client = httpx.Client(transport=httpx.MockTransport(handler))
     up = OpenAICompatUpstream("http://x/v1", "local", client=client)
-    r = up.chat("local-model", [{"role": "user", "content": "hi"}], max_tokens=7)
+    r = up.chat("qwen", [{"role": "user", "content": "hi"}], max_tokens=7)
     assert seen["url"] == "http://x/v1/chat/completions" and seen["body"]["max_tokens"] == 7
     assert r.message["content"] == "ok" and r.usage["total_tokens"] == 5
 
@@ -80,5 +80,5 @@ def test_openai_compat_reports_the_model_the_server_says_answered(reply_model, e
     if reply_model is not None:
         body["model"] = reply_model
     client = httpx.Client(transport=httpx.MockTransport(lambda request: httpx.Response(200, json=body)))
-    r = OpenAICompatUpstream("http://x/v1", "local", client=client).chat("basal-1.0-1.5B", [{"role": "user", "content": "hi"}])
-    assert r.model == "basal-1.0-1.5B" and r.served_model == expected  # asked for a name, the server decides what answered
+    r = OpenAICompatUpstream("http://x/v1", "local", client=client).chat("qwen2.5:7b", [{"role": "user", "content": "hi"}])
+    assert r.model == "qwen2.5:7b" and r.served_model == expected  # asked for qwen, the server decides what answered
