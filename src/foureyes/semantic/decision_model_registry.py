@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import threading
+import time
 from typing import Callable
 
 from .basal_decision_client import BasalDecisionClient
@@ -23,11 +24,15 @@ class DecisionModelRegistry:
     """Hands out decision model clients by the names used in policy.yaml. A changed config builds a new client,
     so a hot reload that points a model elsewhere takes effect on the next request."""
 
-    def __init__(self, factories: dict[str, Factory] | None = None, override: DecisionModelClient | None = None):
+    def __init__(self, factories: dict[str, Factory] | None = None, override: DecisionModelClient | None = None,
+                 health_ttl_s: float = 5.0, clock: Callable[[], float] = time.monotonic):
         self.factories = {**DEFAULT_FACTORIES, **(factories or {})}
         self.override = override
         self._cache: dict[tuple[str, str], DecisionModelClient] = {}
         self._lock = threading.Lock()
+        self.health_ttl_s = health_ttl_s
+        self._clock = clock
+        self._health: dict[tuple[str, str], tuple[float, bool]] = {}
 
     def client(self, name: str, snapshot) -> DecisionModelClient:
         if self.override is not None:
@@ -47,8 +52,18 @@ class DecisionModelRegistry:
                  if name not in LEGACY_MODELS.get(cid, ())}
         out: dict[str, bool] = {}
         for name in sorted(names):
+            key = (name, json.dumps(snapshot.decision_model_cfg(name), sort_keys=True))
+            now = self._clock()
+            with self._lock:
+                hit = self._health.get(key)
+            if hit is not None and now - hit[0] < self.health_ttl_s:
+                out[name] = hit[1]
+                continue
             try:
-                out[name] = bool(self.client(name, snapshot).healthy())
+                ok = bool(self.client(name, snapshot).healthy())
             except Exception:
-                out[name] = False
+                ok = False
+            with self._lock:
+                self._health[key] = (now, ok)
+            out[name] = ok
         return out

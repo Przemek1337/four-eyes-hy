@@ -15,7 +15,7 @@ class KycTools:
     """Mock tools modelled on a public bank onboarding API: create entity → documents → submit → status."""
 
     def __init__(self, registries: dict | None = None) -> None:
-        self.registries = registries or {
+        self.registries = registries if registries is not None else {
             "krs": KrsRegistryLookup.from_env(REGISTRY_EXTRACTS_DIR),
             "companies_house": CompaniesHouseRegistryLookup.from_env(REGISTRY_EXTRACTS_DIR),
         }

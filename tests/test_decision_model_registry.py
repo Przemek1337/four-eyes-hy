@@ -1,5 +1,3 @@
-import httpx
-
 from foureyes.posture import compute
 from foureyes.semantic.basal_decision_client import BasalDecisionClient
 from foureyes.semantic.decision_model_registry import DecisionModelRegistry
@@ -42,6 +40,27 @@ def test_health_covers_models_used_by_active_controls_only():
     assert reg.health(only_judge) == {"basal": True}
     legacy = snapshot({"controls": {"sem.prompt_injection": {"model": "promptguard"}}})
     assert "promptguard" not in reg.health(legacy)
+
+
+def test_health_is_cached_for_the_ttl():
+    class Counting(MockDecisionClient):
+        probes = 0
+
+        def healthy(self):
+            Counting.probes += 1
+            return True
+
+    now = [100.0]
+    reg = DecisionModelRegistry(factories={"granite_guardian": lambda cfg: Counting(), "basal": lambda cfg: Counting()},
+                                health_ttl_s=5.0, clock=lambda: now[0])
+    snap = snapshot()
+    reg.health(snap)
+    assert Counting.probes == 2
+    now[0] += 4.9
+    assert reg.health(snap) == {"granite_guardian": True, "basal": True} and Counting.probes == 2
+    now[0] += 0.2
+    reg.health(snap)
+    assert Counting.probes == 4
 
 
 def test_posture_penalises_each_down_model():

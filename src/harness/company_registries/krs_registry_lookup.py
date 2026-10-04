@@ -28,7 +28,7 @@ class KrsRegistryLookup:
         return cls(extracts_dir, live=os.environ.get("KRS_LIVE") == "1", client=client)
 
     def lookup(self, number: str) -> dict:
-        if not re.fullmatch(r"\d{10}", number or ""):
+        if not re.fullmatch(r"[0-9]{10}", number or ""):
             raise ValueError("a KRS number has 10 digits")
         if self.live:
             return self._live(number)
@@ -46,7 +46,10 @@ class KrsRegistryLookup:
             raise RegistryRecordNotFound(number)
         if resp.status_code != 200:
             raise RegistryUnavailable(f"KRS API answered {resp.status_code}")
-        return resp.json()
+        try:
+            return resp.json()
+        except ValueError as exc:
+            raise RegistryUnavailable("unreadable answer") from exc
 
     def summarize(self, record: dict) -> dict:
         odpis = record["odpis"]
