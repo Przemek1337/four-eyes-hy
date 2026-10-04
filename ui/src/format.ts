@@ -31,3 +31,11 @@ export const fmtDuration = (s: number | null | undefined): string => {
   if (t < 3600) return t % 60 === 0 ? `${t / 60} min` : `${Math.floor(t / 60)} min ${t % 60} s`;
   return `${Math.floor(t / 3600)} h ${Math.round((t % 3600) / 60)} min`;
 };
+
+/** The model to show for a call. The server's own answer wins; the policy's name is only the request, so it is labelled
+ *  as such, and never presented as fact when the server did not confirm it. */
+export function modelLabel(route: { model: string; served_model?: string | null }): string {
+  const served = route.served_model;
+  if (!served) return `${route.model} (as configured, the server did not say which model answered)`;
+  return served === route.model ? served : `${served} (the policy asked for ${route.model})`;
+}

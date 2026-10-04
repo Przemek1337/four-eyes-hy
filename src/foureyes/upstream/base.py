@@ -13,7 +13,8 @@ class ModelResponse:
     message: dict
     usage: dict
     seconds: float
-    model: str
+    model: str  # the name the gateway asked for
+    served_model: str | None = None  # the name the server says answered, when it says; None means unknown
 
 
 class ModelUpstream(Protocol):

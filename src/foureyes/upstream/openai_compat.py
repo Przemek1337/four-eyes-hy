@@ -32,4 +32,5 @@ class OpenAICompatUpstream:
         except (httpx.HTTPError, KeyError, IndexError, ValueError) as exc:
             raise UpstreamError(f"{self.type} upstream failed: {exc}") from exc
         return ModelResponse(message=message, usage=data.get("usage", {}),
-                             seconds=time.perf_counter() - t0, model=model)
+                             seconds=time.perf_counter() - t0, model=model,
+                             served_model=data.get("model") if isinstance(data.get("model"), str) and data.get("model") else None)

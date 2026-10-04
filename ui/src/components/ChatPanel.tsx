@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { aiSummary, pickAi } from "../aiInfo";
 import { api } from "../api/client";
 import type { ChatResult } from "../api/types";
-import { fmtMs } from "../format";
+import { fmtMs, modelLabel } from "../format";
 import { DecisionPill } from "./Badge";
 
 /** A file waiting to be sent. The gateway reads it as an untrusted client document (a PDF is read on the server). */
@@ -79,7 +79,7 @@ function Verdict({ item, onOpenSession }: { item: Item; onOpenSession?: (id: str
   const ai = pickAi(r.ai, r.rule);
   if (ai) facts.push(["AI model", aiSummary(ai)]);
   if (r.data_class) facts.push(["Data class", r.data_class]);
-  if (r.route) facts.push(["Route", `${r.route.type} · ${r.route.model} · router ${r.route.router}${r.route.rerouted_from ? ` (rerouted from ${r.route.rerouted_from})` : ""}`]);
+  if (r.route) facts.push(["Route", `${r.route.type} · ${modelLabel(r.route)} · router ${r.route.router}${r.route.rerouted_from ? ` (rerouted from ${r.route.rerouted_from})` : ""}`]);
   if (r.latency_ms != null) facts.push(["Time", fmtMs(r.latency_ms)]);
   const body = (
     <>
@@ -146,8 +146,7 @@ export function ChatPanel({ onOpenSession }: { onOpenSession?: (sessionId: strin
     if (!file) return;
     setError(null);
     try {
-      setAttachment(await readAttachment(file));
-      setText("");
+      setAttachment(await readAttachment(file)); // what was already typed stays: it becomes the question about the file
     } catch (e) {
       setError((e as Error).message);
     }
@@ -194,14 +193,16 @@ export function ChatPanel({ onOpenSession }: { onOpenSession?: (sessionId: strin
     setBusy(true);
     setError(null);
     try {
+      const question = text.trim();
       const result = attachment
         ? await api.chat({ mode: "document", text: attachment.text, session_id: undefined, // a file is a fresh client upload
+            ...(question ? { question } : {}),                                           // typed next to it, sent as a prompt
             ...(attachment.pdfBase64
               ? { file: { name: attachment.name, content_type: "application/pdf", content_base64: attachment.pdfBase64 } }
               : {}) })
         : await api.chat({ mode: "prompt", text, session_id: sessionId });
       if (!attachment) setSessionId(result.session_id);
-      setHistory((h) => [...h, { id: (h[h.length - 1]?.id ?? 0) + 1, text: attachment ? "" : text, attachment, result }]);
+      setHistory((h) => [...h, { id: (h[h.length - 1]?.id ?? 0) + 1, text: attachment ? question : text, attachment, result }]);
       setText("");
       setAttachment(null);
       if (field.current) field.current.style.height = "auto";
@@ -216,7 +217,7 @@ export function ChatPanel({ onOpenSession }: { onOpenSession?: (sessionId: strin
   return (
     <div className="chatwrap">
       <p className="page-sub">
-        Try the gateway. Your messages go through the same policy as a real agent. Type anything, or drop a client file in: a file is sent as an untrusted client upload.
+        Try the gateway. Your messages go through the same policy as a real agent. Type anything, or drop a client file in: a file is sent as an untrusted client upload. Type a question next to the file if you want one answered about it. The model also sees your previous exchange, so you can follow up. New session starts clean.
       </p>
       {sessionId && (
         <p className="chat-session">
@@ -230,6 +231,7 @@ export function ChatPanel({ onOpenSession }: { onOpenSession?: (sessionId: strin
           <li key={item.id}>
             <div className="me">
               {item.attachment && <FileChip file={item.attachment} />}
+              {item.attachment && item.text && <span className="me-question">{item.text.length > 600 ? `${item.text.slice(0, 600)}…` : item.text}</span>}
               {item.attachment
                 ? <span className="me-doc">{item.attachment.pdfBase64 ? "PDF sent to the gateway to read." : item.attachment.text.length > 240 ? `${item.attachment.text.slice(0, 240)}…` : item.attachment.text}</span>
                 : (item.text.length > 600 ? `${item.text.slice(0, 600)}…` : item.text)}
@@ -248,8 +250,8 @@ export function ChatPanel({ onOpenSession }: { onOpenSession?: (sessionId: strin
             <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" /></svg>
           </button>
           <label className="sr-only" htmlFor="chat-message">Message</label>
-          <textarea id="chat-message" ref={field} aria-label="Message" rows={1} value={text} disabled={attachment != null}
-                    placeholder={attachment ? "The file is sent as the client document. Remove it to type a message." : "Type a message, or drop a file here"}
+          <textarea id="chat-message" ref={field} aria-label="Message" rows={1} value={text}
+                    placeholder={attachment ? "Ask something about the file (optional). The file is sent as the client document." : "Type a message, or drop a file here"}
                     onChange={(e) => { setText(e.target.value); grow(e.target); }}
                     onPaste={(e) => { const f = e.clipboardData?.files?.[0]; if (f) { e.preventDefault(); void attach(f); } }}
                     onKeyDown={(e) => {
