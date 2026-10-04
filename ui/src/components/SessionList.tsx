@@ -63,7 +63,7 @@ export function SessionList({ rows, onSelect, filters, onFilters, actions, onOpe
               <span className="muted">{r.agent}</span>
               <span className="hide-s">{r.client ?? "–"}</span>
               <StatusMark status={r.status} />
-              <span><DecisionPill decision={r.last_decision} /></span>
+              <span><DecisionPill decision={r.pending_approvals > 0 ? "APPROVAL" : r.last_decision} /></span>
               <span className="muted hide-s">{r.steps}</span>
               <span className="muted hide-s">{fmtTime(r.started)}</span>
             </div>

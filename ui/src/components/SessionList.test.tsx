@@ -19,6 +19,15 @@ describe("SessionList", () => {
     expect(plain).toHaveTextContent("–"); // no client
   });
 
+  it("shows Approval for a session waiting for a human, even if the agent made a harmless call after the held one", () => {
+    const waiting = fx.session({ session_id: "w1", last_decision: "ALLOW", pending_approvals: 2 });
+    render(<SessionList rows={[waiting, clean]} onSelect={() => {}} filters={{}} onFilters={() => {}} />);
+    const row = screen.getByRole("button", { name: "w1" }).closest(".srow") as HTMLElement;
+    expect(row).toHaveTextContent("APPROVAL");
+    expect(row).not.toHaveTextContent("ALLOW");
+    expect(screen.getByRole("button", { name: "b2" }).closest(".srow")).toHaveTextContent("ALLOW"); // untouched when nothing waits
+  });
+
   it("opens a session from the id or from anywhere in the row", async () => {
     const onSelect = vi.fn();
     render(<SessionList rows={[fx.session(), clean]} onSelect={onSelect} filters={{}} onFilters={() => {}} />);
