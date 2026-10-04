@@ -18,6 +18,7 @@ class SessionState:
     steps: int = 0
     tokens: int = 0
     tools_called: list[str] = field(default_factory=list)
+    last_turn: list[dict] = field(default_factory=list)  # Playground: the previous exchange, as the gateway delivered it
     _pending: list[dict] = field(default_factory=list, repr=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False, compare=False)
 

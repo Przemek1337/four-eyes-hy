@@ -48,6 +48,7 @@ EMPTY_REPORT = {"passed": 0, "failed": 0, "positive": {"passed": 0, "failed": 0}
                 "ran_at": None, "policy_version": None}
 DECISIONS = ("ALLOW", "REDACT", "APPROVAL", "BLOCK")
 MAX_QUESTION_CHARS = 2000
+HISTORY_CHARS = 4000  # Playground keeps the last exchange only, each side cut to this length
 REPORT = Path(os.environ.get("FOUREYES_REPORT", "reports/test_report.json"))
 
 
@@ -487,9 +488,19 @@ def chat(http: HttpRequest, body: dict = Body(...)):
         except ValueError as exc:  # the harness could not read it: not a PDF, encrypted, no text layer
             return JSONResponse({"error": {"message": str(exc)}}, status_code=422)
     agent = s.chat_agent or "playground-agent"
+    # The model sees the previous exchange. The gateway keeps it itself, from what it delivered, instead of taking a
+    # history from the browser: a forged "assistant" message would not be read as text to check.
+    earlier = s.sessions.get(sid)
+    history = list(earlier.last_turn) if earlier else []
     req = Request(kind="model", agent_id=agent, session_id=sid, channel="chat", model=body.get("model") or "auto",
-                  messages=[{"role": "user", "content": text}], meta={"session_id": sid, "channel": "chat"})
+                  messages=history + [{"role": "user", "content": text}], meta={"session_id": sid, "channel": "chat"})
     res = engine.handle_model(req)
+    if res.status == 200:
+        reply_text = res.body["choices"][0]["message"].get("content")
+        kept = s.sessions.get(sid)
+        if kept is not None and isinstance(reply_text, str):  # the user's text after any redaction, and the reply as delivered
+            kept.last_turn = [{"role": "user", "content": str(req.messages[-1].get("content", ""))[:HISTORY_CHARS]},
+                              {"role": "assistant", "content": reply_text[:HISTORY_CHARS]}]
     ev = next((e for e in reversed(s.audit.events(session=sid)) if e.get("decision_id") == res.decision_id), {})
     v = res.verdict
     ok = res.status == 200

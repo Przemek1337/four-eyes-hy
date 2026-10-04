@@ -217,7 +217,7 @@ export function ChatPanel({ onOpenSession }: { onOpenSession?: (sessionId: strin
   return (
     <div className="chatwrap">
       <p className="page-sub">
-        Try the gateway. Your messages go through the same policy as a real agent. Type anything, or drop a client file in: a file is sent as an untrusted client upload. Type a question next to the file if you want one answered about it.
+        Try the gateway. Your messages go through the same policy as a real agent. Type anything, or drop a client file in: a file is sent as an untrusted client upload. Type a question next to the file if you want one answered about it. The model also sees your previous exchange, so you can follow up. New session starts clean.
       </p>
       {sessionId && (
         <p className="chat-session">
