@@ -43,9 +43,11 @@ code, .mono { font-family: var(--mono); font-size: 12.5px; overflow-wrap: anywhe
   display: flex; flex-direction: column; gap: 32px;
   border-right: 1px solid var(--line); overflow-y: auto;
 }
-.logo { display: grid; grid-template-columns: repeat(2, 9px); gap: 3px 10px; width: max-content; padding: 0 12px; }
-.logo i { width: 9px; height: 9px; border-radius: 50%; background: var(--hold); }
-.logo i:nth-child(n + 3) { background: transparent; box-shadow: inset 0 0 0 2px var(--hold); }
+.logo { display: flex; align-items: center; gap: 14px; width: max-content; padding: 0 12px; }
+.logo-name { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.eyes { display: grid; grid-template-columns: repeat(2, 9px); gap: 3px 10px; }
+.eyes i { width: 9px; height: 9px; border-radius: 50%; background: var(--hold); }
+.eyes i:nth-child(n + 3) { background: transparent; box-shadow: inset 0 0 0 2px var(--hold); }
 .nav { display: grid; gap: 4px; }
 .tab {
   display: flex; align-items: center; gap: 12px; padding: 10px 12px; border: 0; border-radius: 12px;
