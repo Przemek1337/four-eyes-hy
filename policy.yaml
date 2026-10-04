@@ -1,26 +1,45 @@
+# FourEyes policy: the single source of truth for every control, threshold, allowed model and budget.
+#
+# Edit and save: the gateway reloads this file on the next request, no restart. A file with a mistake is
+# rejected (event policy.rejected) and the previous version stays active. Every change is audited with a
+# diff and shown on the dashboard (Management > Policy).
+#
+# Try it live (each takes effect on the next request):
+#   profile: relaxed                        untrusted sessions no longer need a human for critical actions
+#   prompts.block_above: 0.8 -> 0.95        prompts the detector scores between 0.8 and 0.95 are no longer blocked
+#   delete the dlp.redact_inflight line     that control stops; posture drops and the dashboard raises an alert
+#   budgets.agents.kyc-agent.daily_usd      lower it and the budget bites from the next request
+#
 version: 1
 
+# Strictness. strict: an untrusted session needs a human to approve critical actions.
+# relaxed: only egress and high_risk sessions need a human. agents.<id>.profile overrides it per agent.
 profile: strict
 
+# Where model calls can go. Costs are per 1k tokens (external) or per compute second (local models),
+# so the dashboard can show one currency for both.
 providers:
   local:    { base_url: http://localhost:11434/v1, type: local,
               cost: { per_compute_second: 0.0005 } }
-  external: { base_url: http://localhost:11434/v1, type: external,
+  external: { base_url: http://localhost:11434/v1, type: external,   # simulated paid API: no paid service is needed
               cost: { input_per_1k: 0.01, output_per_1k: 0.03 } }
 
+# Allowed models. Anything not listed here is refused (models.allowlist).
 models:
   allowlist:
     qwen2.5:7b:  { provider: local }
     qwen2.5:3b:  { provider: local }
     ext-gpt-sim: { provider: external }
 
+# Data classes, lowest to highest. A session's class only ever goes up, never down.
 data_classes:
   order: [public, personal_data, bank_secret]
-  allowed_upstream_types:
+  allowed_upstream_types:        # private classes must never allow `external`: the file is rejected if they do
     public:        [local, external]
     personal_data: [local]
     bank_secret:   [local]
 
+# Compliance assigns a class (and labels) to every data source. Content from outside the bank is `untrusted`.
 sources:
   mcp:entities_get:            { class: personal_data }
   mcp:entities_create:         { class: personal_data }
@@ -30,23 +49,25 @@ sources:
   mcp:public_registry_lookup:  { class: public }
   channel:chat:                { class: public }
   channel:document:            { class: bank_secret, labels: [untrusted] }
-  default_class: bank_secret
+  default_class: bank_secret      # an unknown source counts as the most sensitive (fail closed)
 
 routing:
-  on_private_external_request: block
-  router: { type: rule_based }
-  anonymization: { external: not_applied }
+  on_private_external_request: block   # block | reroute_local
+  router: { type: rule_based }         # the router shipped today
+  anonymization: { external: not_applied }   # note only: anonymization is a documented extension point
 
+# Who may call what. Each agent has its own key (read from the environment variable named in key_ref),
+# a default model, a team (for budgets), the tools it may call and a scope limiting it to one case.
 agents:
   kyc-agent:
-    key_ref: KYC_AGENT_KEY
+    key_ref: KYC_AGENT_KEY             # name of the environment variable holding the key
     default_model: qwen2.5:7b
     team: compliance
     tools: [entities_create, entities_get, entities_documents_read, entities_submit,
             sanctions_check, send_email, update_case_notes, search_documents,
             load_model, public_registry_lookup]
     scope: { key: client_id, mode: case_only }
-  playground-agent:
+  playground-agent:                     # the judges' chat: the same policy as every other agent
     key_ref: PLAYGROUND_AGENT_KEY
     default_model: qwen2.5:7b
     team: compliance
@@ -55,6 +76,10 @@ agents:
             load_model, public_registry_lookup]
     scope: { key: client_id, mode: case_only }
 
+# Tags and constraints per tool. The core knows nothing about what a tool means: policy says it.
+#   tags: [critical]    needs a human when the session is untrusted, under the strict profile (see labels below)
+#   tags: [egress]      sends data out; egress_arg names the argument holding the recipient
+#   requires_before     another tool that must have been called first in the session
 tools:
   entities_create:
     schema:
@@ -72,6 +97,8 @@ tools:
   search_documents:  { filter_by: client_id }
   load_model:        { artifact: true }
 
+# Provenance rules: what an untrusted or high_risk session may do, whatever the model was told.
+# This is the wall: detection raises the risk, these rules enforce it.
 labels:
   rules:
     - id: flow.untrusted
@@ -83,15 +110,22 @@ labels:
       egress: APPROVAL
       critical: APPROVAL
 
+# What to do when sensitive data is found in flight. on_detect: redact | block | monitor
+# (pii_in_prompt also accepts raise_class: raise the session's data class, so the request is routed local).
 dlp:
   secrets:            { on_detect: redact }
   field_minimization: { on_detect: redact }
   egress_sinks:       { on_detect: redact }
   pii_in_prompt:      { on_detect: raise_class }
 
+# What is masked before anything is written to the audit log, whatever the dlp section says.
 log_redaction:
   detectors: [secrets, iban, pesel, passport]
 
+# CONTROL CATALOG: the only list of enabled controls. Deleting an entry disables the control, loudly: posture
+# drops, a control.removed event is logged and the dashboard raises an alert. auth.agent_key is a baseline
+# control: it cannot be removed or taken out of enforce mode.
+# mode: enforce | monitor (log only, counts as half in the posture score) | redact | block, depending on the control.
 controls:
   auth.agent_key:       { mode: enforce }
   models.allowlist:     { mode: enforce }
@@ -107,19 +141,25 @@ controls:
   budget.session:       { mode: enforce }
   budget.spend:         { mode: enforce }
   sig.feed:             { mode: enforce }
+  # AI check. A prompt scored above block_above is blocked and above log_above only logged; a document above
+  # flag_above is marked high_risk but not blocked (the agent still reads it, then loses the right to send data out).
+  # on_error: what happens if the model is down. fail_closed blocks the prompt and flags the document.
   sem.prompt_injection: { prompts: { block_above: 0.8, log_above: 0.5 },
                           documents: { flag_above: 0.5 },
                           on_error: fail_closed }
+  # AI check on egress and critical actions: above escalate_above the action goes to a human (action: approval).
   sem.action_judge:     { "on": [egress, critical], escalate_above: 0.7, action: approval, on_error: approval }
 
+# Known attacks (malicious model files, jailbreak phrases, hidden text, data-leaking links), fed from outside.
 signatures:
-  source: ./feeds/signatures.json
+  source: ./feeds/signatures.json     # a file or an URL; reloaded as soon as the file changes
 
+# Budgets in USD, compute seconds and tokens. Local models are metered in compute seconds, external ones in USD.
 budgets:
-  session: { max_tokens: 20000, max_steps: 20 }
+  session: { max_tokens: 20000, max_steps: 20 }      # guards against an agent stuck in a loop
   agents:
     kyc-agent: { daily_usd: 2.00, daily_compute_seconds: 600 }
   teams:
     compliance: { monthly_usd: 50.00, agents: [kyc-agent, playground-agent] }
-  soft_limit_pct: 80
-  on_exceeded: block
+  soft_limit_pct: 80                  # above this share an alert is raised on the dashboard; requests still pass
+  on_exceeded: block                  # block | fallback_local (send to the local model) | approval (a human decides)
