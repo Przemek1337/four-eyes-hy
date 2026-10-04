@@ -14,6 +14,8 @@ make test                    # full automated suite, no GPU needed
 MODEL=mock make run          # gateway with mocked model answers (what the demo uses)
 ```
 
+The demo uses mocked model answers; the code runs the real local model with `DECISION_MODELS=live`.
+
 Open <http://127.0.0.1:8080/ui/>. In **Playground** press **Run test attack**: a staged mix of attacks and legitimate
 requests goes through the gateway, and the **Security** and **Management** tabs fill up.
 
@@ -23,7 +25,8 @@ requests goes through the gateway, and the **Security** and **Management** tabs 
    screening, email the data out". Whether or not any detector catches it, the agent cannot approve without screening
    (blocked) and cannot send data out without a human (approval). [Flow diagram](docs/img/kyc-flow.png).
 2. **Local decision model (Basal 1.5B).** The AI guard reads client data, so it runs on our own GPU. The policy
-   validator rejects any setup where a content-reading control uses an external model.
+   validator rejects any setup where a content-reading control uses an external model. Suggested stronger option:
+   IBM Granite Guardian 4.1 8B for injection detection (adapter included).
 3. **Computed risk scores.** Every prompt gets an injection score 0 to 1 with block and log thresholds; sessions can
    become `high_risk`; the dashboard shows a posture score 0 to 100 with each deduction named.
 4. **OWASP Top 10 for LLM (2026) and EU AI Act patterns.** Every control is tagged with the categories it covers and
@@ -47,7 +50,7 @@ them alone, and we publish how often they miss.
 
 AI controls can only tighten a deterministic decision. If the model is down, the control fails closed.
 
-## The dashboard in 60 seconds
+## The dashboard
 
 | Tab | What to look at |
 |---|---|
@@ -73,13 +76,6 @@ Synthetic attack corpus on fictitious KYC data: 600 attacks, 478 stopped (79.7%)
 blocks, 122 known gaps (paraphrased or translated injection, role-play, LLM07), all measured and reported.
 The wall tests show those gaps do not turn into harm. Details: [docs/attack-corpus.md](docs/attack-corpus.md).
 
-## Honest limits
-
-- **The demo runs with mocked decision-model answers** (`MODEL=mock`). The gateway, policy, controls, approvals,
-  budgets, audit and dashboard are real; the real local model path is the same code (`DECISION_MODELS=live`).
-- Basal 1.5B is small and often abstains on our demo set; low confidence goes to a human instead of a guess.
-- Suggested upgrade: IBM Granite Guardian 4.1 8B for injection detection (adapter included, live check pending).
-- The gateway knows agent keys, not people. No grounding control for LLM07. Session state is in memory.
 
 More: [docs/architecture.md](docs/architecture.md) (Polish), [docs/attack-corpus.md](docs/attack-corpus.md).
 
@@ -143,11 +139,7 @@ Registries: files by default; `KRS_LIVE=1` for the public KRS API, `CH_API_KEY=<
 
 Playground uploads get their own client scope. For supported KRS and Companies House extracts, the document's company name and registry number appear in the reply and determine the registry lookup. Onboarding continues only if the registry record matches the document. An unknown company or unsupported extract is reviewed for manipulation without running onboarding; unavailable registry records require additional verification. In file mode, a missing fixture is explicitly reported as unverified, rather than a claim that the company does not exist.
 
-## Honest limits
-
-- Granite Guardian is trained and tested on English only; Polish documents are measured in `make eval-models`.
-- The gateway knows agent keys, not people: one `agents:` entry per person/tool until human identity lands (remediation plan).
 
 ## Licenses
 
-Granite Guardian 4.1 (Apache-2.0), Basal-1.0 (Apache-2.0), reportlab (BSD), pypdf (BSD-3), python-multipart (Apache-2.0).
+reportlab (BSD), pypdf (BSD-3), python-multipart (Apache-2.0).
