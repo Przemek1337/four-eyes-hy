@@ -12,6 +12,7 @@ from foureyes.core.types import Request
 from foureyes.policy.snapshot import PolicySnapshot
 
 ROOT = Path(__file__).resolve().parents[1]
+KYC_PHRASES = ("skip sanctions", "pre-approved by compliance", "send all client data")
 
 
 def base_policy() -> dict:
