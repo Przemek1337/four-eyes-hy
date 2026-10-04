@@ -10,7 +10,6 @@ const ms = (v: number): string => (v < 10 ? `${v.toFixed(1)} ms` : `${Math.round
 export function SpeedPanel({ latency, series, throughput }: { latency: Latency; series: TimeseriesT | null; throughput?: Metrics["throughput_per_min"] }) {
   const pts = series?.points ?? [];
   const gw = latency.gateway, up = latency.upstream;
-  const share = up.p95 + gw.p95 > 0 ? (gw.p95 / (up.p95 + gw.p95)) * 100 : null;
   const slowest = Object.entries(latency.controls).sort((a, b) => b[1].p95 - a[1].p95).slice(0, 3);
   const none = gw.count === 0;
   return (
@@ -30,7 +29,7 @@ export function SpeedPanel({ latency, series, throughput }: { latency: Latency; 
       <div className="two-charts even lower">
         <BarList
           title="Gateway overhead vs model time"
-          sub={share != null ? `The layer is ${share.toFixed(1)}% of end-to-end time at p95. The model is the rest.` : "The layer's cost next to the model's."}
+          sub="The layer's cost next to the model's, in milliseconds. A mock or fast model makes the layer look large; compare the absolute times."
           valueLabel=""
           format={ms}
           sorted={false}

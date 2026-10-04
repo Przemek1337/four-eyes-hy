@@ -72,7 +72,7 @@ export function buildSummaries(d: SummaryInput): Record<SectionId, Summary | nul
     const gw = m.latency.gateway, up = m.latency.upstream;
     speed = gw.count === 0
       ? { text: "No traffic yet.", attention: false }
-      : { text: `The gateway adds ${fmtMs(gw.p50)} at the median and ${fmtMs(gw.p95)} at p95, ${((gw.p95 / Math.max(1, gw.p95 + up.p95)) * 100).toFixed(1)}% of end-to-end time.`, attention: false };
+      : { text: `The gateway adds ${fmtMs(gw.p50)} at the median and ${fmtMs(gw.p95)} at p95. The model or tool took ${fmtMs(up.p95)} at p95.`, attention: false };
   }
 
   let proof: Summary | null = null;
@@ -81,7 +81,7 @@ export function buildSummaries(d: SummaryInput): Record<SectionId, Summary | nul
     const enforced = d.owasp ? ` ${d.owasp.categories.filter((c) => c.status === "enforced").length} of ${d.owasp.categories.length} OWASP categories enforced.` : "";
     proof = t.ran_at == null
       ? { text: "No test report yet.", attention: true }
-      : { text: `${t.passed} of ${t.passed + t.failed} tests pass. Missed attacks ${t.missed_attacks}, false blocks ${t.false_blocks}.${enforced}`, attention: t.failed > 0 || t.missed_attacks > 0 || t.false_blocks > 0 };
+      : { text: `${t.passed} of ${t.passed + t.failed} tests pass. Missed attacks in tests ${t.missed_attacks}, false blocks ${t.false_blocks}.${enforced}`, attention: t.failed > 0 || t.missed_attacks > 0 || t.false_blocks > 0 };
   }
   return { threats, data, policy, cost, speed, proof };
 }

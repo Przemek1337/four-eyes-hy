@@ -12,8 +12,8 @@ describe("buildSummaries", () => {
     expect(s.threats?.text).toBe("118 blocked (9% of requests). Busiest hour: 12 at " + s.threats!.text.match(/at (\d\d:\d\d)\./)![1] + ". Most stopped by sig.feed.");
     expect(s.data?.text).toBe("No private data reached an external model. 61 fields were removed on the way.");
     expect(s.policy?.text).toBe("3 of 3 controls active, strict profile.");
-    expect(s.speed?.text).toMatch(/The gateway adds 6\.0 ms at the median and 18\.0 ms at p95, 1\.5% of end-to-end time\./);
-    expect(s.proof?.text).toBe("142 of 142 tests pass. Missed attacks 0, false blocks 0. 1 of 3 OWASP categories enforced.");
+    expect(s.speed?.text).toMatch(/The gateway adds 6\.0 ms at the median and 18\.0 ms at p95\. The model or tool took /);
+    expect(s.proof?.text).toBe("142 of 142 tests pass. Missed attacks in tests 0, false blocks 0. 1 of 3 OWASP categories enforced.");
     expect(Object.values(s).every((x) => x && !x.attention || x?.attention === true)).toBe(true);
     expect(s.cost?.attention).toBe(true); // the fixture has agents near and over their limit
   });

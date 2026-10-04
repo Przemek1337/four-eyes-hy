@@ -91,8 +91,8 @@ export function TestsPanel({ tests }: { tests: TestsT }) {
         </div>
         <div className={tests.missed_attacks === 0 ? "kpi hold" : "kpi"} role="group" aria-label="Missed attacks">
           <b>{tests.missed_attacks}{tests.missed_attacks > 0 && <span className="badge badge-red kpi-breach">Gap</span>}</b>
-          <span>Missed attacks</span>
-          <small>attacks the layer let through</small>
+          <span>Missed attacks (tests)</span>
+          <small>attacks a test expected to stop that got through. Known gaps are counted separately, below.</small>
         </div>
         <div className={tests.false_blocks === 0 ? "kpi hold" : "kpi"} role="group" aria-label="False blocks">
           <b>{tests.false_blocks}{tests.false_blocks > 0 && <span className="badge badge-red kpi-breach">Gap</span>}</b>

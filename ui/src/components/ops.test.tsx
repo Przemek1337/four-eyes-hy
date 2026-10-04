@@ -62,9 +62,10 @@ describe("SpeedPanel", () => {
     expect(screen.getAllByRole("img")).toHaveLength(2);
   });
 
-  it("puts the gateway's cost next to the model's and says how big the layer's share is", () => {
+  it("puts the gateway's cost next to the model's in absolute times, without a percentage share", () => {
     render(<SpeedPanel latency={m.latency} series={fx.timeseries()} />);
-    expect(screen.getByText(/The layer is 1\.5% of end-to-end time at p95/)).toBeInTheDocument();
+    expect(screen.getByText(/The layer's cost next to the model's, in milliseconds/)).toBeInTheDocument();
+    expect(screen.queryByText(/of end-to-end time/)).not.toBeInTheDocument();
     const rows = screen.getAllByRole("listitem");
     expect(rows[0]).toHaveTextContent("Gateway, median");
     expect(rows[0]).toHaveTextContent("6.0 ms");

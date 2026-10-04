@@ -44,7 +44,7 @@ describe("ManagementView overview", () => {
     expect(within(list).getByText(/118 blocked \(9% of requests\)/)).toBeInTheDocument();
     expect(within(list).getByText(/No private data reached an external model/)).toBeInTheDocument();
     expect(within(list).getByText(/3 of 3 controls active/)).toBeInTheDocument();
-    expect(within(list).getByText(/142 of 142 tests pass\. Missed attacks 0, false blocks 0/)).toBeInTheDocument();
+    expect(within(list).getByText(/142 of 142 tests pass\. Missed attacks in tests 0, false blocks 0/)).toBeInTheDocument();
     await userEvent.click(within(list).getByRole("button", { name: /Speed/ }));
     expect(screen.getByRole("tab", { name: "Speed" })).toHaveAttribute("aria-selected", "true");
     expect(await screen.findByRole("region", { name: "Gateway overhead" })).toBeInTheDocument();
