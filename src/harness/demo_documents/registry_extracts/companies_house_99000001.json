@@ -1,0 +1,11 @@
+{
+  "company_name": "THAMES FREIGHT LTD",
+  "company_number": "99000001",
+  "company_status": "active",
+  "type": "ltd",
+  "date_of_creation": "2018-05-21",
+  "jurisdiction": "england-wales",
+  "registered_office_address": {"address_line_1": "1 Example Wharf", "locality": "London", "postal_code": "E1 0AA", "country": "England"},
+  "sic_codes": ["49410"],
+  "links": {"self": "/company/99000001"}
+}

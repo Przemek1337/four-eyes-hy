@@ -76,6 +76,7 @@ def default_tools() -> FakeToolUpstream:
         "search_documents": lambda **a: {"results": [{"client_id": "C1", "text": "own"}, {"client_id": "C2", "text": "other"}]},
         "load_model": lambda **a: {"loaded": True},
         "public_registry_lookup": lambda **a: {"name": "Nordwind"},
+        "uk_registry_lookup": lambda **a: {"status": "found"},
     })
 
 
@@ -110,3 +111,19 @@ def call(gw, name, args, session="s1", rpc_id=1, meta=None, headers=None):
             "params": {"name": name, "arguments": args, "_meta": meta or {}}}
     r = gw.client.post("/mcp", json=body, headers=h).json()["result"]
     return r["isError"], r["structuredContent"]
+
+
+def kyc_gateway(tmp_path, tools=None, **kw):
+    """The reference KYC tool server behind the gateway, with the scripted model on both upstreams."""
+    from foureyes.upstream.mcp import McpUpstream
+    from harness.kyc.mock_model import kyc_script
+    from harness.kyc.server import create_tool_app
+    from harness.kyc.tools import KycTools
+
+    tools = tools or KycTools()
+    mcp = McpUpstream("http://tools/mcp", client=TestClient(create_tool_app(tools)))
+    gw = make_gateway(tmp_path, tools=mcp, **kw)
+    gw.services.upstreams.models["local"].script = kyc_script
+    gw.services.upstreams.models["external"].script = kyc_script
+    gw.kyc = tools
+    return gw
