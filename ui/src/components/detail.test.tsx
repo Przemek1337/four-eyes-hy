@@ -115,7 +115,7 @@ describe("WhyBlocked", () => {
     expect(within(panel).getByText("Classic jailbreak phrasing")).toBeInTheDocument();
     expect(within(panel).getByText("skip sanctions screening")).toBeInTheDocument();
     expect(within(panel).getByText("0.95")).toBeInTheDocument();
-    expect(within(panel).getByText(/policy v4/)).toBeInTheDocument();
+    expect(within(panel).queryByText(/policy v4/)).not.toBeInTheDocument();
   });
   it("finds the detector score in the verdict detail or an alert when the event has no top-level score", () => {
     const { rerender } = render(<WhyBlocked event={fx.decision({ decision: "BLOCK", detail: { score: 0.81 } })} />);

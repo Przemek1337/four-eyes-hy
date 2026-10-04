@@ -98,7 +98,7 @@ describe("PolicyPanel", () => {
   it("shows the version, history with diffs and a healthy feed", () => {
     render(<PolicyPanel policy={fx.policy()} />);
     const panel = screen.getByRole("region", { name: "Policy and feed" });
-    expect(within(panel).getByText(/Version v4, profile strict/)).toBeInTheDocument();
+    expect(within(panel).getByText(/Profile strict/)).toBeInTheDocument();
     expect(within(panel).getByText("~ profile: 'strict' -> 'relaxed'")).toBeInTheDocument();
     expect(within(panel).getByText("policy.rejected")).toHaveClass("badge-red");
     expect(within(panel).getByText("unknown control 'made.up'")).toBeInTheDocument();
@@ -113,7 +113,7 @@ describe("PolicyPanel", () => {
       feed: { version: "2026-10-03.1", count: 7, last_reload: 1, error: "feed rejected: unknown signature type", source: "f" } })} />);
     const alerts = screen.getAllByRole("alert");
     expect(alerts[0]).toHaveTextContent("baseline control");
-    expect(alerts[0]).toHaveTextContent("Still running v4");
+    expect(alerts[0]).toHaveTextContent("The previous policy is still running");
     expect(alerts[1]).toHaveTextContent("feed rejected");
   });
 

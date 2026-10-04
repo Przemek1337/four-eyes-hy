@@ -8,7 +8,7 @@ from foureyes.upstream.fake import FakeToolUpstream
 from helpers import call, chat, make_gateway, policy_with
 
 TREASURY = {
-    "agents": {"treasury-agent": {"key_ref": "TREASURY_KEY", "default_model": "qwen2.5:7b", "team": "treasury",
+    "agents": {"treasury-agent": {"key_ref": "TREASURY_KEY", "default_model": "basal-1.0-1.5B", "team": "treasury",
                                   "profile": "strict", "tools": ["read_invoice", "lookup_supplier", "payments_execute"],
                                   "scope": {"key": "account_id", "mode": "case_only"}}},
     "tools": {"payments_execute": {

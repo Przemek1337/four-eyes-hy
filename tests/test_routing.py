@@ -48,7 +48,7 @@ def test_unknown_model_blocked_even_without_allowlist_control():
 
 
 @pytest.mark.parametrize("data_class", CLASSES)
-@pytest.mark.parametrize("model", ["auto", "qwen2.5:7b", "qwen2.5:3b", "ext-gpt-sim"])
+@pytest.mark.parametrize("model", ["auto", "basal-1.0-1.5B", "ext-gpt-sim"])
 @pytest.mark.parametrize("mode", ["block", "reroute_local"])
 def test_invariant_never_routes_private_data_to_external(data_class, model, mode):
     ctx = ctx_for(model, data_class, overrides={"routing": {"on_private_external_request": mode}})
