@@ -31,7 +31,7 @@ def build_guardian_block(criterion: str) -> str:
 
 def _label(content: str) -> str:
     match = _SCORE.findall(_THINK.sub("", content or ""))
-    label = match[0].strip().lower() if match else None
+    label = match[-1].strip().lower() if match else None  # the last tag, like the logprob parser
     if label not in ("yes", "no"):
         raise ValueError(f"granite guardian answer has no yes/no score: {content!r}")
     return label
@@ -39,7 +39,7 @@ def _label(content: str) -> str:
 
 def _p_yes_from_logprobs(tokens: list[dict], label: str) -> float | None:
     """P(yes) from the yes/no token that follows the `<score>` tag. None (use the hard label) when that token is
-    missing or its label disagrees with the label parsed from the text."""
+    missing, its label disagrees with the label parsed from the text, or the probability points the other way."""
     text, after_tag = "", None
     for i, tok in enumerate(tokens):
         text += tok.get("token", "")
@@ -55,12 +55,19 @@ def _p_yes_from_logprobs(tokens: list[dict], label: str) -> float | None:
     chosen = tok.get("token", "").strip().lower()
     if chosen not in ("yes", "no") or chosen != label:
         return None
-    alts = {a["token"].strip().lower(): math.exp(a["logprob"]) for a in tok.get("top_logprobs") or []}
+    alts: dict[str, float] = {}
+    for alt in tok.get("top_logprobs") or []:
+        key = alt.get("token", "").strip().lower()  # "yes", " yes", "Yes" are one answer: sum them
+        alts[key] = alts.get(key, 0.0) + math.exp(alt["logprob"])
     alts.setdefault(chosen, math.exp(tok["logprob"]))
     yes, no = alts.get("yes"), alts.get("no")
     if yes is not None and no is not None:
-        return yes / (yes + no)
-    return yes if yes is not None else 1 - no
+        p = yes / (yes + no)
+    else:
+        p = yes if yes is not None else 1 - no
+    if (label == "yes" and p < 0.5) or (label == "no" and p > 0.5):
+        return None
+    return p
 
 
 class GraniteGuardianDecisionClient:

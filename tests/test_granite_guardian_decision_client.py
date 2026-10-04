@@ -98,3 +98,36 @@ def test_capabilities_builtin_health_and_config():
     g = GraniteGuardianDecisionClient.from_config({"type": "granite_guardian", "base_url": "http://g:1/v1/",
                                                     "model": "m", "max_input_tokens": 6000})
     assert (g.base_url, g.model_version, g.max_input_tokens) == ("http://g:1/v1", "m", 6000)
+
+
+def test_a_late_case_variant_does_not_overwrite_the_main_token():
+    # review C1 probe: vLLM lists top_logprobs by descending probability, so "Yes" (0.001) comes after "yes" (0.55)
+    tokens = [lp("<score>", -0.01, []),
+              lp("yes", math.log(0.55), [("yes", math.log(0.55)), ("no", math.log(0.40)), ("Yes", math.log(0.001))])]
+    d = client_for(lambda req: answer("<score>yes</score>", tokens)).yes_probability("x", "c")
+    assert d.p_yes == pytest.approx(0.551 / 0.951) and d.probability_source == "logprobs"
+    assert d.confidence < 0.9  # uncertain, so the injection control takes the stricter side
+
+
+def test_variants_of_the_same_label_are_summed():
+    tokens = [lp("<score>", -0.01, []),
+              lp("no", math.log(0.5), [("no", math.log(0.5)), (" no", math.log(0.2)), ("No", math.log(0.1)),
+                                       ("yes", math.log(0.1)), (" Yes", math.log(0.1))])]
+    d = client_for(lambda req: answer("<score>no</score>", tokens)).yes_probability("x", "c")
+    assert d.p_yes == pytest.approx(0.2 / 1.0) and d.confidence == pytest.approx(0.8)
+
+
+def test_probability_that_points_away_from_the_label_falls_back_to_the_hard_label():
+    yes_label = [lp("<score>", -0.01, []), lp("yes", math.log(0.3), [("yes", math.log(0.3)), ("no", math.log(0.6))])]
+    d = client_for(lambda req: answer("<score>yes</score>", yes_label)).yes_probability("x", "c")
+    assert (d.p_yes, d.confidence, d.probability_source) == (1.0, 1.0, "hard_label")
+    no_label = [lp("<score>", -0.01, []), lp("no", math.log(0.3), [("no", math.log(0.3)), ("yes", math.log(0.6))])]
+    d = client_for(lambda req: answer("<score>no</score>", no_label)).yes_probability("x", "c")
+    assert (d.p_yes, d.confidence, d.probability_source) == (0.0, 1.0, "hard_label")
+
+
+def test_the_label_and_the_probability_both_come_from_the_last_score_tag():
+    tokens = [lp("<score>", -0.01, []), lp("no", math.log(0.9), [("no", math.log(0.9))]), lp("</score>", -0.01, []),
+              lp("<score>", -0.01, []), lp("yes", math.log(0.9), [("yes", math.log(0.9)), ("no", math.log(0.1))])]
+    d = client_for(lambda req: answer("<score>no</score> <score>yes</score>", tokens)).yes_probability("x", "c")
+    assert d.p_yes == pytest.approx(0.9) and d.probability_source == "logprobs"
