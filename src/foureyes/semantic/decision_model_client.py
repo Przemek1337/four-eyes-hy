@@ -32,12 +32,14 @@ class AiAssessment:
     chunks: int
     latency_ms: float
     uncertain: bool
+    probability_source: str = "model"  # model | logprobs | hard_label (not calibrated)
 
     def to_dict(self) -> dict:
         return {"model": self.model, "model_version": self.model_version, "rule": self.outcome,
                 "probability": round(self.probability, 4), "confidence": round(self.confidence, 4),
                 "score": round(self.score, 4), "chunks": self.chunks, "latency_ms": round(self.latency_ms, 2),
-                "uncertain": self.uncertain}
+                "uncertain": self.uncertain,
+                "probability_source": self.probability_source}
 
 
 class UncertainDecision(Exception):
