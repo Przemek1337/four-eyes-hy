@@ -1,13 +1,21 @@
 from __future__ import annotations
 
 import re
-from typing import Protocol
+from typing import Callable, Protocol
+
+from foureyes.detect.normalize import variants
 
 
 class InjectionScorer(Protocol):
     def score(self, text: str) -> float: ...
 
     def healthy(self) -> bool: ...
+
+
+def worst_reading(score_one: Callable[[str], float], text: str) -> float:
+    """Score the text as written and in its normalised readings (look-alike letters, spacing, base64...), keep the worst.
+    ROT13 is only tried when the text itself mentions it, so an ordinary prompt costs one model call."""
+    return max(score_one(r) for r in variants(text, rot13="rot13" in text.lower()))
 
 
 class MockInjectionScorer:
@@ -28,6 +36,9 @@ class MockInjectionScorer:
             raise RuntimeError("injection scorer unavailable")
         if self.fixed is not None:
             return self.fixed
+        return worst_reading(self._score_one, text)
+
+    def _score_one(self, text: str) -> float:
         lowered = text.lower()
         return 0.95 if any(p.search(lowered) for p in self.patterns) else 0.03
 
@@ -45,6 +56,9 @@ class HFInjectionScorer:
         self._pipe = pipeline("text-classification", model=model_id, truncation=True, max_length=512)
 
     def score(self, text: str) -> float:
+        return worst_reading(self._score_one, text)
+
+    def _score_one(self, text: str) -> float:
         out = self._pipe(text[:4000])[0]
         label = str(out["label"]).upper()
         return float(out["score"]) if "INJECTION" in label or label in ("LABEL_1", "MALICIOUS", "JAILBREAK") \
