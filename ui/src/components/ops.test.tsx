@@ -108,7 +108,8 @@ describe("TestsPanel", () => {
     expect(within(panel).getByRole("group", { name: "Missed attacks" })).toHaveTextContent("0");
     expect(within(panel).getByRole("group", { name: "Missed attacks" })).toHaveClass("hold");
     expect(within(panel).getByRole("group", { name: "False blocks" })).toHaveClass("hold");
-    expect(within(panel).getByText("make test")).toBeInTheDocument();
+    expect(within(panel).queryByText("make test")).not.toBeInTheDocument();
+    expect(within(panel).queryByText(/policy v\d/i)).not.toBeInTheDocument();
   });
 
   it("calls out missed attacks and false blocks when they are not zero", () => {

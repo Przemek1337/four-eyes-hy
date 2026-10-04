@@ -53,7 +53,7 @@ export function buildSummaries(d: SummaryInput): Record<SectionId, Summary | nul
     if (removed.length > 0) policy = { text: `${removed.join(", ")} removed. ${active} of ${d.controls.length} controls active.`, attention: true };
     else if (d.policy?.error) policy = { text: "The last policy change was rejected. The previous policy is still running.", attention: true };
     else if (d.policy?.feed.error) policy = { text: "The signature feed has an error.", attention: true };
-    else policy = { text: `${active} of ${d.controls.length} controls active${d.policy ? `. Policy ${d.policy.version}, ${d.policy.profile}` : ""}.`, attention: false };
+    else policy = { text: `${active} of ${d.controls.length} controls active${d.policy ? `, ${d.policy.profile} profile` : ""}.`, attention: false };
   }
 
   let cost: Summary | null = null;

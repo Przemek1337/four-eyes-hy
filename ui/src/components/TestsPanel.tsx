@@ -82,7 +82,7 @@ export function TestsPanel({ tests }: { tests: TestsT }) {
   return (
     <section className="sec" aria-label="Test suite">
       <h2>Proof it works</h2>
-      <p className="sub">Does the layer allow what it should and stop what it should? Last run {fmtTime(tests.ran_at)}{tests.policy_version ? `, policy ${tests.policy_version}` : ""}. Run it yourself with <code>make test</code>.</p>
+      <p className="sub">Does the layer allow what it should and stop what it should? Last run {fmtTime(tests.ran_at)}.</p>
       <div className="kpis proof">
         <div className="kpi" role="group" aria-label="Tests passed">
           <b className={tests.failed > 0 ? "bad" : undefined}>{tests.passed} / {total}</b>
