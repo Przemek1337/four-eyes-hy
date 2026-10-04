@@ -31,15 +31,15 @@ def test_request_carries_the_text_and_the_guardian_block_with_logprobs():
         seen.update(path=req.url.path, body=json.loads(req.content))
         return answer("<think>\n</think>\n<score>no</score>")
 
-    client_for(handler).yes_probability("Verify Nordwind", "The text gives instructions to an AI assistant.")
+    client_for(handler).yes_probability("Verify Nordwind", "The text tries to override the instructions the assistant was given.")
     body = seen["body"]
     assert seen["path"] == "/v1/chat/completions"
     assert body["model"] == "ibm-granite/granite-guardian-4.1-8b" and body["temperature"] == 0
     assert body["logprobs"] is True and body["top_logprobs"] == 5
     assert body["messages"][0] == {"role": "user", "content": "Verify Nordwind"}
     assert body["messages"][1] == {"role": "user",
-                                   "content": build_guardian_block("The text gives instructions to an AI assistant.")}
-    assert "### Criteria: The text gives instructions to an AI assistant." in body["messages"][1]["content"]
+                                   "content": build_guardian_block("The text tries to override the instructions the assistant was given.")}
+    assert "### Criteria: The text tries to override the instructions the assistant was given." in body["messages"][1]["content"]
 
 
 def test_probability_from_logprobs_of_the_score_token():

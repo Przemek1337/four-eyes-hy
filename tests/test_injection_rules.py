@@ -94,7 +94,7 @@ def test_uncertain_document_flags_the_session_high_risk():
 def test_builtin_rule_is_skipped_for_models_without_it():
     client = RuleAware("nothing", 0.0, builtin=False)
     assess_injection(client, "basal", "hello", CONF)
-    assert len(client.asked) == 3  # instruction_to_assistant, redirect_data, fake_authority; jailbreak skipped
+    assert len(client.asked) == 3  # override_instructions, redirect_data, fake_authority; jailbreak skipped
     with_builtin = RuleAware("nothing", 0.0)
     assess_injection(with_builtin, "granite_guardian", "hello", CONF)
     assert len(with_builtin.asked) == 4
