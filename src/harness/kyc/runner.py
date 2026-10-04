@@ -19,7 +19,7 @@ def make_document_runner(client, tools, key: str):
         decision = last["outcome"] if last else "ALLOW"
         return {"session_id": session_id, "decision": decision, "rule": None, "layer": None,
                 "code": last["code"] if last else None, "owasp": [], "data_class": sess["session"]["data_class"],
-                "route": None, "latency_ms": None, "injection_score": None, "reply": out["reply"],
+                "route": None, "latency_ms": None, "injection_score": None, "ai": None, "reply": out["reply"],
                 "approval_id": last["approval_id"] if last else None,
                 "message": out["status"], "steps": out["steps"]}
     return run

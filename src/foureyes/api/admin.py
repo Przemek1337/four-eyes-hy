@@ -252,6 +252,8 @@ def controls(http: HttpRequest):
     for e in _decisions(s):
         if e["decision"] != "ALLOW" and (e.get("ts_epoch") or cutoff) >= cutoff:
             hits[e["rule"]] = hits.get(e["rule"], 0) + 1
+    refs = model_refs(snap.controls)
+    health = s.decision_models.health(snap) if s.decision_models else {}
     rows = []
     for cid in CATALOG_IDS:
         cfg = snap.control_cfg(cid)
@@ -261,7 +263,10 @@ def controls(http: HttpRequest):
                      "mode": (cfg or {}).get("mode", "enforce" if cfg is not None else None),
                      "params": {k: v for k, v in (cfg or {}).items() if k != "mode"},
                      "owasp": list(CONTROL_OWASP.get(cid, ())), "hits_1h": hits.get(cid, 0),
-                     "p95_ms": tele.get(cid, {}).get("p95", 0.0), "weight": WEIGHTS.get(cid, 0)})
+                     "p95_ms": tele.get(cid, {}).get("p95", 0.0), "weight": WEIGHTS.get(cid, 0),
+                     "model": refs.get(cid),
+                     "model_status": (None if refs.get(cid) not in health
+                                      else "up" if health[refs.get(cid)] else "down")})
     reloads = [h for h in s.policy_store.history if h["event"] == "policy.reloaded"]
     return {"controls": rows, "last_diff": reloads[-1]["diff"] if reloads else []}
 
@@ -476,7 +481,7 @@ def chat(http: HttpRequest, body: dict = Body(...)):
             "layer": v.layer if v else None, "code": v.code if v else None,
             "owasp": list(v.owasp) if v else [], "data_class": ev.get("data_class"),
             "route": route, "latency_ms": ev.get("latency_ms"),
-            "injection_score": ev.get("injection_score"),
+            "injection_score": ev.get("injection_score"), "ai": ev.get("ai"),
             "reply": res.body["choices"][0]["message"].get("content") if ok else None,
             "approval_id": (v.detail.get("approval_id") if v else None) if not ok else None,
             "message": v.reason if v else "", "steps": []}

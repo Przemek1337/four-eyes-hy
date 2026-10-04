@@ -14,6 +14,18 @@ def _real_upstreams(snapshot):
     return {name: OpenAICompatUpstream(cfg["base_url"], cfg["type"]) for name, cfg in snapshot.policy.providers.items()}
 
 
+def decision_registry_for(mock: bool, harness: str | None):
+    from foureyes.semantic.decision_model_registry import DecisionModelRegistry
+    from foureyes.semantic.mock_decision_client import MockDecisionClient
+
+    if not mock:
+        return DecisionModelRegistry()
+    rules = {}
+    if harness == "kyc":
+        from harness.kyc.mock_decision_rules import MOCK_DECISION_RULES as rules
+    return DecisionModelRegistry(override=MockDecisionClient(**rules))
+
+
 def build(policy: Path, harness: str | None, port: int):
     from foureyes.api.app import create_app
     from foureyes.bootstrap import build_services
@@ -39,6 +51,7 @@ def build(policy: Path, harness: str | None, port: int):
     models = ({n: MockModelUpstream(c["type"], script=script) for n, c in snap.policy.providers.items()} if mock
               else _real_upstreams(snap))
     services.upstreams = UpstreamRegistry(models, tools_upstream)
+    services.decision_models = decision_registry_for(mock, harness)
     if os.environ.get("FOUREYES_INJECTION", "mock") == "hf":
         from foureyes.semantic.injection import HFInjectionScorer
         services.injection = HFInjectionScorer()
@@ -49,7 +62,7 @@ def build(policy: Path, harness: str | None, port: int):
         services.injection = MockInjectionScorer(extra_patterns=phrases)
     if not mock:
         local = snap.policy.providers["local"]
-        model = (snap.control_cfg("sem.action_judge") or {}).get("model") or snap.default_local_model(None)
+        model = snap.default_local_model(None)
         services.judge = OllamaJudge(local["base_url"], model)
     else:
         services.judge = MockJudge()
