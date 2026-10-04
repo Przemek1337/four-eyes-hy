@@ -41,10 +41,15 @@ def test_thames_pdf_is_an_english_companies_house_extract(fresh):
     assert "THAMES FREIGHT LTD" in text and "Company number: 99000001" in text
 
 
-def test_generation_is_deterministic_and_the_committed_files_are_current(fresh, tmp_path):
+def test_generation_is_byte_for_byte_deterministic(fresh, tmp_path):
     generate(tmp_path)
     for name in DOCUMENT_FILES:
-        assert text_of(tmp_path / name) == text_of(fresh / name) == text_of(PDF_DIR / name)
+        assert (tmp_path / name).read_bytes() == (fresh / name).read_bytes()
+
+
+def test_the_committed_files_have_the_current_text(fresh):
+    for name in DOCUMENT_FILES:
+        assert text_of(PDF_DIR / name) == text_of(fresh / name)
 
 
 def test_not_a_pdf_and_a_pdf_without_text():
