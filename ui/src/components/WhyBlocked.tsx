@@ -1,5 +1,5 @@
 import type { ApprovalT, AuditEvent, JudgeInfo } from "../api/types";
-import { Badge, DecisionPill } from "./Badge";
+import { Badge } from "./Badge";
 
 /** Why a step was allowed, stopped or held. Rendered inside the selected timeline step. */
 export function WhyBlocked({ event, approval }: { event: AuditEvent | null; approval?: ApprovalT | null }) {
@@ -15,7 +15,6 @@ export function WhyBlocked({ event, approval }: { event: AuditEvent | null; appr
   return (
     <section className="why" role="region" aria-label="Why this decision">
       <dl className="facts">
-        <dt>Decision</dt><dd><DecisionPill decision={event.decision} /></dd>
         <dt>Rule</dt>
         <dd>
           <code>{event.rule}</code>{event.code ? <> · <code>{event.code}</code></> : null}

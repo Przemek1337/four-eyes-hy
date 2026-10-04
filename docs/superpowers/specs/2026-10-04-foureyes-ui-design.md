@@ -38,7 +38,7 @@ Every state is also readable without colour (shape, fill, symbol, line style), s
 | `Allow` | grey outline pill |
 | `Redact` | dashed grey outline pill |
 | `Approval` (waiting for a human) | **lime outline**, lime text |
-| `Block` (stopped by the system) | **lime filled pill with ✕**; on the timeline a larger lime node with ✕ and a lime-tinted card |
+| `Block` (stopped by the system) | **lime filled pill**, no cross (a cross reads as a button); on the timeline a larger lime node. An expanded step looks like a hovered one: neutral surface and a hairline, not a lime card |
 | `untrusted` | dashed ring, dashed timeline line, and a lightly tinted band from the first untrusted step to the end with the note "Session is untrusted from here" |
 | `high_risk` | filled white dot |
 | `clean` | hollow grey ring |

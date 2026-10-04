@@ -106,7 +106,7 @@ describe("WhyBlocked", () => {
   it("shows rule, layer, OWASP tags with year, signature, reference, evidence and score", () => {
     render(<WhyBlocked event={stopped} />);
     const panel = screen.getByRole("region", { name: "Why this decision" });
-    expect(within(panel).getByText("BLOCK")).toBeInTheDocument();
+    expect(within(panel).queryByText("BLOCK")).not.toBeInTheDocument(); // the decision is the pill in the step header, not repeated here
     expect(within(panel).getByText("sig.feed")).toBeInTheDocument();
     expect(within(panel).getByText("Deterministic")).toBeInTheDocument();
     expect(within(panel).getByText("LLM01:2026")).toBeInTheDocument();
