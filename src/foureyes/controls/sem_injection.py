@@ -20,12 +20,12 @@ class PromptInjectionControl(Control):
         ctx.session.add_label("high_risk", reason)
         ctx.alert("document.injection", owasp=list(OWASP), **data)
 
-    def _assess(self, ctx, conf: dict, text: str) -> tuple[float, dict | None]:
+    def _assess(self, ctx, conf: dict, text: str, *, document: bool = False) -> tuple[float, dict | None]:
         name = conf.get("model")
         registry = getattr(ctx.services, "decision_models", None)
         if registry is None or name in LEGACY:
             return float(ctx.services.injection.score(text)), None
-        a = assess_injection(registry.client(name, ctx.policy), name, text, conf)
+        a = assess_injection(registry.client(name, ctx.policy), name, text, conf, document=document)
         return a.score, a.to_dict()
 
     def evaluate(self, ctx, phase):
@@ -40,7 +40,7 @@ class PromptInjectionControl(Control):
             return None
 
         try:
-            score, ai = self._assess(ctx, conf, text)
+            score, ai = self._assess(ctx, conf, text, document=is_document)
         except Exception as exc:
             if is_document:
                 self._flag(ctx, "injection detector unavailable on document", error=str(exc))
@@ -58,6 +58,8 @@ class PromptInjectionControl(Control):
         if is_document:
             if score >= conf.get("documents", {}).get("flag_above", 0.5):
                 self._flag(ctx, f"document scored {score:.2f}{rule}", score=score, fragment=text[:300], **extra)
+            elif ai and ai.get("uncertain"):
+                ctx.alert("document.uncertain", score=score, **extra)
             return None
         prompts = conf.get("prompts", {})
         if score >= prompts.get("block_above", 0.8):

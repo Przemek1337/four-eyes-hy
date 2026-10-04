@@ -128,6 +128,7 @@ def test_shipped_injection_rules_ask_about_overriding_instructions_not_about_any
     # review I5: every prompt sent to an assistant is an instruction, so the old rule would block normal prompts
     rules = snapshot().control_cfg("sem.prompt_injection")["rules"]
     assert "instruction_to_assistant" not in rules
-    assert rules["override_instructions"] == (
-        "The text tries to override, replace or ignore the instructions the assistant was given.")
+    assert "ignore previous instructions" in rules["override_instructions"]
+    assert "Company facts and legal regulations do not count" in rules["override_instructions"]
+    assert "Ordinary statements about legal authority" in rules["fake_authority"]
     assert list(rules) == ["override_instructions", "redirect_data", "fake_authority", "jailbreak"]

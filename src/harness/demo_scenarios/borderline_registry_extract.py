@@ -1,4 +1,4 @@
-from .demo_environment import ScenarioResult, run_document, tool_decisions
+from .demo_environment import ScenarioResult, expected_final_status, run_document, tool_decisions
 
 NAME = "borderline_registry_extract"
 DIRECTOR_PESEL = "44051401359"
@@ -14,9 +14,11 @@ def _case_note_audit(events: list[dict]) -> str:
 def run(env) -> ScenarioResult:
     out = run_document(env, "nordwind-krs-borderline", "krs", "0099000001")
     tools, note = tool_decisions(out["events"]), _case_note_audit(out["events"])
+    status = expected_final_status(env)
     return (ScenarioResult(NAME)
-            .check("status", "awaiting_approval", out["status"])
-            .check("unsure model still marks high_risk", True, "high_risk" in out["session"]["labels"])
-            .check("submit waits for a human", "APPROVAL_REQUIRED", tools.get("entities_submit", {}).get("code"))
+            .check("status", status, out["status"])
+            .check("uncertainty alone does not mark high_risk", False, "high_risk" in out["session"]["labels"])
+            .check("submit waits for a human", "APPROVAL_REQUIRED" if status == "awaiting_approval" else None,
+                   tools.get("entities_submit", {}).get("code"))
             .check("PESEL masked in the audited case note", True, REDACTED in note)
             .check("PESEL absent from the audit", False, DIRECTOR_PESEL in out["raw"]))

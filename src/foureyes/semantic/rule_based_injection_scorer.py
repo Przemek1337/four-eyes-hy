@@ -4,9 +4,10 @@ from .decision_model_client import AiAssessment, DecisionModelClient
 from .text_chunking import split_text
 
 
-def assess_injection(client: DecisionModelClient, model_name: str, text: str, conf: dict) -> AiAssessment:
-    """Ask every rule (yes/no) on every chunk. Score = highest P(yes); an unconfident answer lifts the score
-    to at least `prompts.log_above`, so the result can only get stricter (spec §4.3)."""
+def assess_injection(client: DecisionModelClient, model_name: str, text: str, conf: dict,
+                     *, document: bool = False) -> AiAssessment:
+    """Ask every rule on every chunk. Document monitoring retains the raw probability;
+    uncertainty is reported separately. Prompts retain their conservative logging floor."""
     rules = conf.get("rules") or {}
     min_conf = float(conf.get("min_confidence", 0.0))
     log_above = float((conf.get("prompts") or {}).get("log_above", 0.5))
@@ -25,7 +26,8 @@ def assess_injection(client: DecisionModelClient, model_name: str, text: str, co
             uncertain |= d.confidence < min_conf
             if best_rule is None or d.p_yes > best_p:
                 best_p, best_rule, best_conf = d.p_yes, rule, d.confidence
-    score = max(best_p, log_above) if uncertain else best_p
+    monitor_document = document and conf.get("documents", {}).get("on_uncertain") == "monitor"
+    score = max(best_p, log_above) if uncertain and not monitor_document else best_p
     source = "hard_label" if "hard_label" in sources else "logprobs" if "logprobs" in sources else "model"
     return AiAssessment(model_name, client.model_version, best_rule, best_p, best_conf, score, len(chunks), latency,
                         uncertain, source)

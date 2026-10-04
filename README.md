@@ -18,7 +18,7 @@ Three AI controls ask narrow questions of local decision models named in `policy
 | `data.classify_net` | Basal-1.0 1.5B | which data class (public / personal_data / bank_secret); can only raise the class |
 | `sem.action_judge` | Basal-1.0 1.5B | consistent / out_of_scope, from the task and the REAL call parameters only |
 
-An unconfident answer (`confidence < min_confidence`) always goes to the stricter side. A content-reading control can never use an `external` model (the policy is rejected). Switch a model live by editing `model:` in `policy.yaml`.
+An unconfident answer (`confidence < min_confidence`) escalates data classification and action review. Document injection uses `documents.on_uncertain: monitor`: low confidence creates a separate audit alert, while `high_risk` requires a score of at least 0.7 or a known attack signature. Detector outages still flag documents. A content-reading control can never use an `external` model (the policy is rejected). Switch a model live by editing `model:` in `policy.yaml`.
 
 The MVP uses one local Basal 1.5B server for all three controls. Build and start it on an NVIDIA GPU:
 
@@ -29,7 +29,7 @@ docker run -d --name foureyes-basal --gpus all -p 127.0.0.1:8000:8000 -v foureye
 
 The first start downloads the model. BF16 with `eager` avoids FP8 compilation and graph warmup on the laptop's Ada GPU. Run the scripted agent with real decision models using `MODEL=mock DECISION_MODELS=live make run`; `MODEL=mock make run` uses deterministic mocks throughout. In a Docker gateway set `BASAL_URL=http://host.docker.internal:8000`. The decision timeout is 10 seconds for this laptop MVP. `make eval-models` evaluates only models used by active controls.
 
-The [live spike results](docs/superpowers/notes/2026-10-04-decision-models-spike.md) record 4/5 passing demo scenarios: the clean document is also marked high risk because the 1.5B model is uncertain. Keep this limitation visible when presenting the MVP.
+The [live spike results and calibration correction](docs/superpowers/notes/2026-10-04-decision-models-spike.md) document the initial false positive and its fix: uncertainty no longer labels a clean document as an attack. Basal 1.5B still misses some injection examples; deterministic signatures and authorization controls remain necessary.
 
 Granite Guardian remains an optional adapter and policy entry; the MVP does not start or contact it. To try it later, run its server on port 8001 and set `sem.prompt_injection.model: granite_guardian`. Its live prompt/logprobs verification is still pending.
 

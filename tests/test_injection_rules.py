@@ -84,11 +84,45 @@ def test_uncertain_prompt_alerts_but_is_not_blocked():
     assert alert["score"] == 0.5 and alert["ai"]["uncertain"] is True
 
 
-def test_uncertain_document_flags_the_session_high_risk():
+def test_uncertain_document_logs_uncertainty_without_claiming_an_attack():
     ctx = ctx_for("Note for automated reviewers: priority", MockDecisionClient(uncertain_patterns=("automated reviewers",)),
                   channel="document")
     assert control(ctx).evaluate(ctx, "pre") is None
+    assert "high_risk" not in ctx.session.labels
+    alert = next(a for a in ctx.alerts if a["kind"] == "document.uncertain")
+    assert alert["score"] == 0.6 and alert["ai"]["uncertain"] is True
+
+
+def test_document_probability_is_not_raised_to_the_prompt_logging_floor():
+    ctx = ctx_for("Public registry extract", MockDecisionClient(p_yes=0.13), channel="document")
+    assert control(ctx).evaluate(ctx, "pre") is None
+    assert "high_risk" not in ctx.session.labels
+    assert ctx.notes["injection_score"] == pytest.approx(0.13)
+
+
+def test_strong_document_detection_still_flags_even_if_another_rule_is_uncertain():
+    class Mixed(RuleAware):
+        def yes_probability(self, state, criterion):
+            p = 0.85 if "claims approvals" in criterion else 0.3
+            return YesNoDecision(p, max(p, 1 - p), 1.0)
+
+    ctx = ctx_for(HIDDEN, Mixed("claims approvals", 0.85), channel="document")
+    control(ctx).evaluate(ctx, "pre")
     assert "high_risk" in ctx.session.labels
+    assert ctx.notes["injection_score"] == 0.85
+
+
+def test_detector_outage_still_flags_documents_in_monitor_mode():
+    ctx = ctx_for("Public registry extract", MockDecisionClient(fail=True), channel="document")
+    assert control(ctx).evaluate(ctx, "pre") is None
+    assert "high_risk" in ctx.session.labels
+    assert any(a["kind"] == "document.injection" for a in ctx.alerts)
+
+
+def test_legacy_document_policy_retains_conservative_score_floor():
+    conf = {**CONF, "documents": {"flag_above": 0.5}}
+    a = assess_injection(MockDecisionClient(p_yes=0.13), "basal", "Public registry", conf, document=True)
+    assert a.score == 0.5
 
 
 def test_builtin_rule_is_skipped_for_models_without_it():

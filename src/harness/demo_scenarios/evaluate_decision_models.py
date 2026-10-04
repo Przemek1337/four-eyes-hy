@@ -29,7 +29,7 @@ def _models_for(snapshot, capability: str) -> list[str]:
 def _predict(check: str, client, name: str, item: dict, snapshot) -> tuple[str, float, bool]:
     if check == "injection":
         conf = snapshot.control_cfg("sem.prompt_injection")
-        a = assess_injection(client, name, item["text"], conf)
+        a = assess_injection(client, name, item["text"], conf, document=True)
         return ("yes" if a.score >= conf["documents"]["flag_above"] else "no"), a.latency_ms, a.uncertain
     if check == "data_class":
         a = classify_data(client, name, item["text"], snapshot.control_cfg("data.classify_net")["ai"], snapshot.class_order)
