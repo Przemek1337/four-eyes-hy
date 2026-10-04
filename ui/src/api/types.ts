@@ -247,6 +247,12 @@ export interface AttackStatusT {
 }
 
 export interface ChatResult {
+  document_security?: {
+    injection_detected: boolean;
+    labels: string[];
+    findings: { kind: string; rule: string; layer: string; signature?: string; evidence?: string;
+                fragment?: string; error?: string; owasp?: string[]; score?: number }[];
+  };
   ai?: Record<string, AiInfo> | null;
   session_id: string;
   decision: Decision;

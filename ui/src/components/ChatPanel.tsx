@@ -3,7 +3,7 @@ import { aiSummary, pickAi } from "../aiInfo";
 import { api } from "../api/client";
 import type { ChatResult } from "../api/types";
 import { fmtMs, modelLabel } from "../format";
-import { DecisionPill } from "./Badge";
+import { Badge, DecisionPill } from "./Badge";
 
 /** A file waiting to be sent. The gateway reads it as an untrusted client document (a PDF is read on the server). */
 interface Attachment { name: string; size: number; text: string; pdfBase64?: string }
@@ -51,6 +51,7 @@ export async function readAttachment(file: File): Promise<Attachment> {
 
 /** One plain sentence about what the gateway did. */
 function headline(r: ChatResult, isDocument: boolean): string {
+  if (r.document_security?.injection_detected) return "Prompt injection detected in the document";
   if (isDocument && r.steps.length > 0) {
     const stopped = r.steps.filter((s) => s.outcome === "BLOCK").length;
     const held = r.steps.filter((s) => s.outcome === "APPROVAL").length;
@@ -69,6 +70,7 @@ function headline(r: ChatResult, isDocument: boolean): string {
 
 function Verdict({ item, onOpenSession }: { item: Item; onOpenSession?: (id: string) => void }) {
   const r = item.result;
+  const detected = r.document_security?.injection_detected === true;
   const stopped = r.decision === "BLOCK";
   const facts: [string, string][] = [];
   if (r.rule) facts.push(["Rule", r.rule]);
@@ -83,7 +85,22 @@ function Verdict({ item, onOpenSession }: { item: Item; onOpenSession?: (id: str
   if (r.latency_ms != null) facts.push(["Time", fmtMs(r.latency_ms)]);
   const body = (
     <>
-      <div className="verdict"><DecisionPill decision={r.decision} /><p>{headline(r, item.attachment != null)}</p></div>
+      <div className="verdict">
+        {detected && <Badge tone="red">High risk</Badge>}
+        {(!detected || r.steps.some((s) => s.outcome === "BLOCK" || s.outcome === "APPROVAL")) &&
+          <DecisionPill decision={r.decision} />}
+        <p>{headline(r, item.attachment != null)}</p>
+      </div>
+      {detected && <div role="alert" className="state state-error">
+        The document was read for analysis. Its instructions have no authority; critical actions and sending data require policy checks.
+        {r.document_security?.findings.filter((f) => f.kind === "document.signature" ||
+          (f.kind === "document.injection" && !f.error)).map((f, i) => (
+          <p key={i}><strong>{f.rule}{f.signature ? ` / ${f.signature}` : ""}</strong>
+            {(f.owasp ?? []).length > 0 && ` (${f.owasp?.join(", ")})`}
+            {(f.evidence ?? f.fragment) && <>: {f.evidence ?? f.fragment}</>}
+          </p>
+        ))}
+      </div>}
       {facts.length > 0 && (
         <dl className="kv">
           {facts.map(([k, v]) => <div key={k}><dt>{k}</dt><dd>{v}</dd></div>)}
@@ -93,7 +110,7 @@ function Verdict({ item, onOpenSession }: { item: Item; onOpenSession?: (id: str
   );
   return (
     <article className="gw" aria-label={`Result ${item.id}`}>
-      {stopped ? <div className="stopbox">{body}</div> : body}
+      {stopped || detected ? <div className="stopbox">{body}</div> : body}
       {r.steps.length > 0 && (
         <ol className="miniflow">
           {r.steps.map((s) => (

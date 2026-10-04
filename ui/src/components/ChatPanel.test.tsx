@@ -171,6 +171,27 @@ describe("which model answered", () => {
 });
 
 describe("attachments", () => {
+  it("shows a detected document attack even when reading it was allowed and no operation was attempted", async () => {
+    vi.mocked(api.chat).mockResolvedValue(result({
+      decision: "ALLOW", reply: "The company could not be identified.",
+      steps: [{ n: 1, tool: "entities_documents_read", args: {}, outcome: "ALLOW", code: null, approval_id: null }],
+      document_security: { injection_detected: true, labels: ["untrusted", "high_risk"], findings: [{
+        kind: "document.signature", rule: "sig.feed", layer: "det", signature: "SIG-PRM-001",
+        evidence: "Ignore previous instructions", owasp: ["LLM01:2026"],
+      }] },
+    }));
+    render(<ChatPanel />);
+    await userEvent.upload(screen.getByLabelText("Choose a file"), new File(["attack"], "attack.txt", { type: "text/plain" }));
+    await userEvent.click(screen.getByRole("button", { name: "Send" }));
+    const card = await screen.findByRole("article", { name: "Result 1" });
+    expect(within(card).getByText("Prompt injection detected in the document")).toBeInTheDocument();
+    expect(within(card).getByText("High risk")).toBeInTheDocument();
+    expect(within(card).getByRole("alert")).toHaveTextContent("SIG-PRM-001");
+    expect(within(card).getByRole("alert")).toHaveTextContent("Ignore previous instructions");
+    // ALLOW remains attached to the read operation, not to the overall document status.
+    expect(within(card).getAllByText("ALLOW")).toHaveLength(1);
+  });
+
   it("opens the file picker from the plus", async () => {
     render(<ChatPanel />);
     const click = vi.spyOn(input(), "click").mockImplementation(() => {});
