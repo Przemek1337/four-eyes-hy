@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from foureyes.core.types import Route
+from foureyes.semantic.decision_model_types import BUILTIN_MODELS, decision_model_warnings
 
 from .models import Policy
 from .validator import validate
@@ -19,6 +20,7 @@ class PolicySnapshot:
         self.policy = policy
         self.base_dir = base_dir
         self._schemas: dict[str, dict | None] = {}
+        self.warnings: list[str] = decision_model_warnings(policy.decision_models, policy.controls)
 
     @classmethod
     def from_dict(cls, raw: dict, base_dir: Path = Path("."), snap_id: int = 1) -> "PolicySnapshot":
@@ -51,6 +53,12 @@ class PolicySnapshot:
     @property
     def class_order(self) -> list[str]:
         return list(self.policy.data_classes["order"])
+
+    def decision_models(self) -> dict[str, dict]:
+        return {**BUILTIN_MODELS, **self.policy.decision_models}
+
+    def decision_model_cfg(self, name: str) -> dict:
+        return self.decision_models()[name]
 
     def has_control(self, cid: str) -> bool:
         return cid in self.policy.controls

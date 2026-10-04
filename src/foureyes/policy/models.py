@@ -19,6 +19,7 @@ class Policy(BaseModel):
     })
     sources: dict[str, Any] = Field(default_factory=dict)
     routing: dict[str, Any] = Field(default_factory=dict)
+    decision_models: dict[str, dict[str, Any]] = Field(default_factory=dict)
     agents: dict[str, dict[str, Any]] = Field(default_factory=dict)
     tools: dict[str, dict[str, Any]] = Field(default_factory=dict)
     labels: dict[str, Any] = Field(default_factory=dict)

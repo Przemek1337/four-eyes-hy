@@ -69,9 +69,11 @@ class PolicyStore:
 
     def _record_reload(self, old: PolicySnapshot, new: PolicySnapshot) -> None:
         diff = diff_dicts(old.raw, new.raw)
-        entry = {"version": new.label, "ts": time.time(), "event": "policy.reloaded", "diff": diff}
+        entry = {"version": new.label, "ts": time.time(), "event": "policy.reloaded", "diff": diff,
+                 "warnings": list(new.warnings)}
         self.history.append(entry)
-        self._on_event({"event": "policy.reloaded", "policy_version": new.label, "diff": diff})
+        self._on_event({"event": "policy.reloaded", "policy_version": new.label, "diff": diff,
+                        "warnings": list(new.warnings)})
         for cid in CATALOG_IDS:
             if old.has_control(cid) and not new.has_control(cid):
                 self._on_event({"event": "control.removed", "control": cid, "policy_version": new.label})

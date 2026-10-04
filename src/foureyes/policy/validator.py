@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from pydantic import ValidationError
 
+from foureyes.semantic.decision_model_types import decision_model_errors
+
 from .catalog import ALLOWED_MODES, BASELINE_IDS, CATALOG_IDS
 from .models import Policy
 
@@ -58,4 +60,7 @@ def validate(raw: object) -> Policy:
         dm = cfg.get("default_model")
         if dm is not None and dm not in allowlist:
             raise PolicyError(f"agent {name}: default_model {dm!r} is not in models.allowlist")
+    dm_errors = decision_model_errors(policy.decision_models, policy.controls, order)
+    if dm_errors:
+        raise PolicyError(dm_errors[0])
     return policy
