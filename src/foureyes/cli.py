@@ -14,6 +14,13 @@ def _real_upstreams(snapshot):
     return {name: OpenAICompatUpstream(cfg["base_url"], cfg["type"]) for name, cfg in snapshot.policy.providers.items()}
 
 
+def decision_models_are_mocked(model_mock: bool) -> bool:
+    """DECISION_MODELS=live|mock overrides MODEL for the decision models only, so a scripted agent (MODEL=mock)
+    can run against real guard models on a machine too small for the agent's own LLM."""
+    choice = os.environ.get("DECISION_MODELS", "").strip().lower()
+    return model_mock if choice not in ("live", "mock") else choice == "mock"
+
+
 def decision_registry_for(mock: bool, harness: str | None):
     from foureyes.semantic.decision_model_registry import DecisionModelRegistry
     from foureyes.semantic.mock_decision_client import MockDecisionClient
@@ -51,7 +58,7 @@ def build(policy: Path, harness: str | None, port: int):
     models = ({n: MockModelUpstream(c["type"], script=script) for n, c in snap.policy.providers.items()} if mock
               else _real_upstreams(snap))
     services.upstreams = UpstreamRegistry(models, tools_upstream)
-    services.decision_models = decision_registry_for(mock, harness)
+    services.decision_models = decision_registry_for(decision_models_are_mocked(mock), harness)
     if os.environ.get("FOUREYES_INJECTION", "mock") == "hf":
         from foureyes.semantic.injection import HFInjectionScorer
         services.injection = HFInjectionScorer()

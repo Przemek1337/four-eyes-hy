@@ -63,14 +63,14 @@ decision_models:
   granite_guardian:
     type: granite_guardian
     location: local
-    base_url: http://127.0.0.1:8001/v1          # vLLM, OpenAI-compatible
+    base_url: ${GRANITE_GUARDIAN_URL:-http://127.0.0.1:8001/v1}   # vLLM or llama.cpp server, OpenAI-compatible
     model: ibm-granite/granite-guardian-4.1-8b
     max_input_tokens: 7000
     timeout_ms: 1500
   basal:
     type: basal
     location: local
-    base_url: http://127.0.0.1:8000
+    base_url: ${BASAL_URL:-http://127.0.0.1:8000}
     model: basal-1.0-4.5B
     max_input_tokens: 2800
     timeout_ms: 500

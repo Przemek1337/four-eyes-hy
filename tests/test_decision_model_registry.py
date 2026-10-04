@@ -78,3 +78,14 @@ def test_admin_posture_reports_a_down_model(tmp_path):
     gw = make_gateway(tmp_path, decision_models=reg)
     body = gw.client.get("/admin/posture").json()
     assert any(b["item"] == "AI model granite_guardian" for b in body["breakdown"])
+
+
+def test_model_urls_expand_environment_variables(monkeypatch):
+    from foureyes.semantic.decision_model_registry import expand_env
+
+    monkeypatch.delenv("GRANITE_GUARDIAN_URL", raising=False)
+    assert expand_env("${GRANITE_GUARDIAN_URL:-http://127.0.0.1:8001/v1}") == "http://127.0.0.1:8001/v1"
+    monkeypatch.setenv("GRANITE_GUARDIAN_URL", "http://granite:8080/v1")
+    assert expand_env("${GRANITE_GUARDIAN_URL:-http://127.0.0.1:8001/v1}") == "http://granite:8080/v1"
+    assert DecisionModelRegistry().client("granite_guardian", snapshot()).base_url == "http://granite:8080/v1"
+    assert expand_env("http://plain:1") == "http://plain:1"

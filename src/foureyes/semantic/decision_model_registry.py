@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import re
 import threading
 import time
 from typing import Callable
@@ -12,6 +14,13 @@ from .granite_guardian_decision_client import GraniteGuardianDecisionClient
 from .mock_decision_client import MockDecisionClient
 
 Factory = Callable[[dict], DecisionModelClient]
+
+_ENV_REF = re.compile(r"\$\{(\w+)(?::-([^}]*))?\}")
+
+
+def expand_env(value: str) -> str:
+    """`${VAR}` / `${VAR:-default}` in a model URL, so one policy works on the host and inside containers."""
+    return _ENV_REF.sub(lambda m: os.environ.get(m.group(1)) or (m.group(2) or ""), value)
 
 DEFAULT_FACTORIES: dict[str, Factory] = {
     "basal": BasalDecisionClient.from_config,
@@ -38,6 +47,8 @@ class DecisionModelRegistry:
         if self.override is not None:
             return self.override
         cfg = snapshot.decision_model_cfg(name)
+        if isinstance(cfg.get("base_url"), str):
+            cfg = {**cfg, "base_url": expand_env(cfg["base_url"])}
         key = (name, json.dumps(cfg, sort_keys=True))
         with self._lock:
             if key not in self._cache:

@@ -32,3 +32,16 @@ def test_admin_chat_returns_the_ai_block(tmp_path):
         override=MockDecisionClient(yes_patterns=KYC_PHRASES)))
     body = gw.client.post("/admin/chat", json={"mode": "prompt", "text": HIDDEN}).json()
     assert body["decision"] == "BLOCK" and body["ai"]["sem.prompt_injection"]["rule"]
+
+
+def test_decision_models_switch_overrides_model_mock(monkeypatch):
+    from foureyes.cli import decision_models_are_mocked
+
+    monkeypatch.delenv("DECISION_MODELS", raising=False)
+    assert decision_models_are_mocked(True) is True and decision_models_are_mocked(False) is False
+    monkeypatch.setenv("DECISION_MODELS", "live")
+    assert decision_models_are_mocked(True) is False  # scripted agent + real guard models
+    monkeypatch.setenv("DECISION_MODELS", "mock")
+    assert decision_models_are_mocked(False) is True
+    monkeypatch.setenv("DECISION_MODELS", "nonsense")
+    assert decision_models_are_mocked(True) is True
