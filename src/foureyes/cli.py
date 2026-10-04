@@ -84,7 +84,7 @@ def main(argv: list[str] | None = None) -> None:
     s.add_argument("--port", type=int, default=8080)
     args = p.parse_args(argv)
     Path("data").mkdir(exist_ok=True)
-    for var in ("KYC_AGENT_KEY", "PLAYGROUND_AGENT_KEY"):
+    for var in ("KYC_AGENT_KEY", "PLAYGROUND_AGENT_KEY", "ANETA_DEV_CLI_KEY"):
         os.environ.setdefault(var, f"dev-{var.lower()}")  # demo keys; set real ones in production
     uvicorn.run(build(Path(args.policy).resolve(), args.harness, args.port), host=args.host, port=args.port)
 

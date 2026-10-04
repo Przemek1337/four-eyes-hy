@@ -1,5 +1,5 @@
 PYTHON ?= python3
-.PHONY: install test run bench ui smoke demo-docs
+.PHONY: install test run bench ui smoke demo-docs demo calibrate-note
 install:
 	$(PYTHON) -m pip install -e '.[dev,harness]'
 test:
@@ -14,3 +14,7 @@ smoke:
 	cd ui && node scripts/smoke.mjs
 demo-docs:
 	$(PYTHON) -m harness.demo_documents.generate_registry_extract_pdfs
+demo:
+	$(PYTHON) -m harness.demo_scenarios.run_all_demo_scenarios
+calibrate-note:
+	$(PYTHON) -m harness.demo_documents.calibrate_borderline_note

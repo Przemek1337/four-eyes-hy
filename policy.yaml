@@ -97,6 +97,11 @@ agents:
             sanctions_check, send_email, update_case_notes, search_documents,
             load_model, public_registry_lookup, uk_registry_lookup]
     scope: { key: client_id, mode: case_only }
+  aneta-dev-cli:                        # one entry per person/tool until human identity lands (remediation plan)
+    key_ref: ANETA_DEV_CLI_KEY
+    team: engineering
+    default_model: qwen2.5:3b
+    tools: [public_registry_lookup, uk_registry_lookup]
 
 # Tags and constraints per tool. The core knows nothing about what a tool means: policy says it.
 #   tags: [critical]    needs a human when the session is untrusted, under the strict profile (see labels below)
@@ -209,7 +214,9 @@ budgets:
   session: { max_tokens: 20000, max_steps: 20 }      # guards against an agent stuck in a loop
   agents:
     kyc-agent: { daily_usd: 2.00, daily_compute_seconds: 600 }
+    aneta-dev-cli: { daily_usd: 0.50, daily_compute_seconds: 120 }
   teams:
     compliance: { monthly_usd: 50.00, agents: [kyc-agent, playground-agent] }
+    engineering: { monthly_usd: 10.00, agents: [aneta-dev-cli] }
   soft_limit_pct: 80                  # above this share an alert is raised on the dashboard; requests still pass
   on_exceeded: block                  # block | fallback_local (send to the local model) | approval (a human decides)
