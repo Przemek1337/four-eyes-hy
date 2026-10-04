@@ -31,7 +31,7 @@ def test_private_sessions_never_reach_the_external_upstream(tmp_path, seed):
         elif a == "auto":
             chat(gw, "x" * rng.choice([5, 5000]), sid)
         else:
-            chat(gw, "x", sid, model="qwen2.5:7b")
+            chat(gw, "x", sid, model="basal-1.0-1.5B")
     lowest = gw.services.policy_store.current().class_order[0]
     classes = []
     for ev in gw.services.audit.events(session=sid, event="decision"):

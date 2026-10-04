@@ -25,7 +25,6 @@ export function WhyBlocked({ event, approval }: { event: AuditEvent | null; appr
         <dt>Rule</dt>
         <dd>
           <code>{event.rule}</code>{event.code ? <> · <code>{event.code}</code></> : null}
-          {event.policy_version ? <span className="muted"> · policy {event.policy_version}</span> : null}
         </dd>
         <dt>Layer</dt><dd>{event.layer === "ai" ? "AI (semantic)" : "Deterministic"}</dd>
         {event.reason && <><dt>Reason</dt><dd>{event.reason}</dd></>}

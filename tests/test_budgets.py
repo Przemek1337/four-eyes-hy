@@ -8,7 +8,7 @@ from foureyes.controls.budget import BudgetSession, BudgetSpend
 from foureyes.core.types import Outcome
 from helpers import make_ctx, snapshot
 
-POLICY_ROUTE = {"local": "qwen2.5:7b", "external": "ext-gpt-sim"}
+POLICY_ROUTE = {"local": "basal-1.0-1.5B", "external": "ext-gpt-sim"}
 
 
 def model_ctx(route="external", meter=None, overrides=None, text="hi", session=None):

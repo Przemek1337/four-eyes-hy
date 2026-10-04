@@ -12,10 +12,10 @@ export function PolicyPanel({ policy }: { policy: PolicyT }) {
       <div className="pf">
         <div>
           <h3>Policy history</h3>
-          <p className="sub">Version {policy.version}, profile {policy.profile}.</p>
+          <p className="sub">Profile {policy.profile}.</p>
           {policy.error && (
             <p role="alert" className="state state-error">
-              The last policy change was rejected: {policy.error}. Still running {policy.version}.
+              The last policy change was rejected: {policy.error}. The previous policy is still running.
             </p>
           )}
           {policy.history.length === 0 ? (
@@ -26,7 +26,7 @@ export function PolicyPanel({ policy }: { policy: PolicyT }) {
                 <li key={i}>
                   <time>{fmtTime(h.ts)}</time>
                   <div>
-                    <span className="row"><b>{h.version}</b> <Badge tone={eventTone(h.event)}>{h.event}</Badge></span>
+                    <span className="row"><Badge tone={eventTone(h.event)}>{h.event}</Badge></span>
                     {h.error && <div className="muted">{h.error}</div>}
                     {h.diff.slice(0, 5).map((d, j) => <div key={j}><code>{d}</code></div>)}
                     {h.diff.length > 5 && <div className="muted">+{h.diff.length - 5} more</div>}

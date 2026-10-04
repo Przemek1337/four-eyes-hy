@@ -28,7 +28,7 @@ def test_known_agent_passes():
 
 
 def test_model_allowlist():
-    assert ModelsAllowlist().evaluate(make_ctx(model="qwen2.5:7b"), "pre") is None
+    assert ModelsAllowlist().evaluate(make_ctx(model="basal-1.0-1.5B"), "pre") is None
     assert ModelsAllowlist().evaluate(make_ctx(model="auto"), "pre") is None
     v = ModelsAllowlist().evaluate(make_ctx(model="gpt-unknown"), "pre")
     assert v.code == "MODEL_NOT_ALLOWED"
