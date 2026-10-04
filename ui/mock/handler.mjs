@@ -6,8 +6,21 @@ const HOUR = 3600;
 
 export function createMock({ now = () => Date.now() } = {}) {
   const t = () => Math.floor(now() / 1000);
-  const fresh = () => ({ removed: false, slow: false, fail: false, decision: null, chats: 0 });
+  const fresh = () => ({ removed: false, slow: false, fail: false, decision: null, chats: 0, attackAt: null });
   let state = fresh();
+
+  // ---- the staged test attack: starts idle, climbs about 3 requests a second, then reports -----------------
+  const ATTACK_TOTAL = 82;
+  const attackStatus = () => {
+    if (state.attackAt == null) return { state: "idle", sent: 0, current: null, summary: null, error: null };
+    const sent = Math.min(ATTACK_TOTAL, Math.floor((Date.now() - state.attackAt) / 330));
+    const labels = ["prompt, base64", "PESEL to the paid external model", "malicious model file", "a note tries to set the case status", "tool outside the agent's list"];
+    if (sent < ATTACK_TOTAL) {
+      return { state: "running", sent, current: { owasp: "LLM01:2026", label: labels[sent % labels.length], actual: "BLOCK" }, summary: null, error: null };
+    }
+    return { state: "done", sent, current: null, error: null,
+      summary: { sent, attacks: 51, attacks_stopped: 51, legit: 19, legit_passed: 19, uncounted: 12, unexpected: [], notes: [] } };
+  };
 
   // ---- sessions ---------------------------------------------------------------------------------
   const sessionRows = () => {
@@ -262,12 +275,18 @@ export function createMock({ now = () => Date.now() } = {}) {
       if (path === "/admin/budgets") return ok(budgets());
       if (path === "/admin/signatures") return ok(signatures());
       if (path === "/admin/tests") return ok(tests());
+      if (path === "/admin/demo/attack") return ok(attackStatus());
       if (path === "/admin/timeseries") return ok(timeseries());
       if (path === "/audit/export") return { status: 200, delayMs, ...exportLog(q) };
     }
 
     if (method === "POST") {
       if (path === "/admin/chat") return ok(chat(body), { broadcast: true });
+      if (path === "/admin/demo/attack") {
+        if (attackStatus().state === "running") return { status: 409, body: { error: { message: "an attack run is already going" }, ...attackStatus() }, delayMs };
+        state.attackAt = Date.now();
+        return { status: 202, body: attackStatus(), delayMs, broadcast: true };
+      }
       const decide = path.match(/^\/admin\/approvals\/([^/]+)\/decide$/);
       if (decide) {
         if (decide[1] !== "ap1") return { status: 404, body: { detail: "unknown approval" }, delayMs };

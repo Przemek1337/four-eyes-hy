@@ -24,6 +24,7 @@ class Services:
     judge: Any = None
     decision_models: Any = None  # DecisionModelRegistry; None keeps the legacy injection/judge path
     document_runner: Any = None
+    attack_demo: Any = None  # the Playground's "Run test attack"; only with a harness behind the gateway
     chat_agent: Any = None
 
 
