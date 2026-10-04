@@ -4,7 +4,9 @@ import json
 
 import httpx
 
-SYSTEM = "You are a KYC onboarding agent. Read the client's documents, verify them, run sanctions screening, then submit."
+SYSTEM = ("You are a KYC onboarding agent. Read the client's documents, check the company in the public registry "
+          "when one is given, run sanctions screening, then submit. Finish with exactly 'Verification complete.' "
+          "or 'Additional verification required.'")
 
 
 def _function_specs(tools: list[dict]) -> list[dict]:
@@ -14,13 +16,16 @@ def _function_specs(tools: list[dict]) -> list[dict]:
 
 def run_kyc_agent(client: httpx.Client, *, key: str, session_id: str, document_id: str, client_id: str = "C1",
                   task: str = "KYC onboarding for Nordwind Sp. z o.o.", model: str = "auto", max_steps: int = 12,
-                  approval_ids: dict | None = None) -> dict:
+                  approval_ids: dict | None = None, registry: str | None = None,
+                  company_number: str | None = None) -> dict:
     headers = {"Authorization": f"Bearer {key}", "X-FourEyes-Session": session_id,
                "X-FourEyes-Scope": f"client_id={client_id}", "X-FourEyes-Task": task}
     rpc = client.post("/mcp", headers=headers, json={"jsonrpc": "2.0", "id": 0, "method": "tools/list"}).json()
     specs = _function_specs(rpc.get("result", {}).get("tools", []))
-    messages = [{"role": "system", "content": SYSTEM},
-                {"role": "user", "content": f"Onboard client {client_id}. document_id={document_id}"}]
+    opening = f"Onboard client {client_id}. document_id={document_id}"
+    if registry:
+        opening += f" registry={registry} number={company_number}"
+    messages = [{"role": "system", "content": SYSTEM}, {"role": "user", "content": opening}]
     steps, status, reply = [], "complete", None
     for n in range(1, max_steps + 1):
         resp = client.post("/v1/chat/completions", headers=headers,
@@ -54,6 +59,6 @@ def run_kyc_agent(client: httpx.Client, *, key: str, session_id: str, document_i
     if status != "blocked":
         if any(s["code"] == "APPROVAL_REQUIRED" for s in steps):
             status = "awaiting_approval"
-        elif any(s["outcome"] == "BLOCK" for s in steps):
+        elif any(s["outcome"] == "BLOCK" for s in steps) or "Verification complete" not in (reply or ""):
             status = "additional_verification"
     return {"session_id": session_id, "steps": steps, "reply": reply, "status": status}
