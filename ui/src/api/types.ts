@@ -205,6 +205,19 @@ export interface SignaturesT {
   hits: { type: string; matches: string; reference: string; signature_id: string | null; blocked: number }[];
 }
 
+export interface CorpusT {
+  attacks: number;
+  attacks_stopped: number;
+  detection_rate: number | null;
+  benign: number;
+  false_blocks: number;
+  false_block_rate: number | null;
+  by_owasp: Record<string, { attacks: number; stopped: number; benign: number; false_blocks: number }>;
+  by_technique: Record<string, { attacks: number; stopped: number }>;
+  known_gaps: { owasp: string; technique: string; sample: string }[];
+  known_gap_count: number;
+}
+
 export interface TestsT {
   passed: number;
   failed: number;
@@ -215,6 +228,8 @@ export interface TestsT {
   missed_attacks: number;
   ran_at: number | null;
   policy_version: string | null;
+  /** Synthetic attack and benign corpus results; absent in reports from older runs. */
+  corpus?: CorpusT;
 }
 
 export interface ChatResult {

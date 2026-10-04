@@ -17,12 +17,19 @@ def _pesel_ok(s: str) -> bool:
     return (10 - sum(int(d) * w for d, w in zip(s, weights)) % 10) % 10 == int(s[10])
 
 
+# 11 digits, optionally written as 6+5 or 2+2+2+5 with a space or hyphen (how people type it). The checksum
+# keeps order numbers and phone numbers out.
+_PESEL = re.compile(r"(?<!\d)\d{2}[ -]?\d{2}[ -]?\d{2}[ -]?\d{5}(?!\d)")
+
+
 def find_pesel(text: str) -> list[Span]:
     return [Span(m.start(), m.end(), "pesel")
-            for m in re.finditer(r"(?<!\d)\d{11}(?!\d)", text) if _pesel_ok(m.group())]
+            for m in _PESEL.finditer(text) if _pesel_ok(re.sub(r"\D", "", m.group()))]
 
 
-_IBAN = re.compile(r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?\b")
+_IBAN = re.compile(r"\b[A-Z]{2}\d{2}(?: ?[A-Z0-9]{4}){3,7}(?: ?[A-Z0-9]{1,3})?\b", re.I)
+# A Polish account number is often written without the country code: 26 digits, grouped as 2+4x6 or solid.
+_IBAN_PL_BARE = re.compile(r"(?<![\d\w])\d{2}(?:[ -]?\d{4}){6}(?!\d)")
 
 
 def _iban_ok(s: str) -> bool:
@@ -33,11 +40,21 @@ def _iban_ok(s: str) -> bool:
 
 
 def find_iban(text: str) -> list[Span]:
-    return [Span(m.start(), m.end(), "iban") for m in _IBAN.finditer(text) if _iban_ok(m.group())]
+    spans = []
+    for m in _IBAN.finditer(text):
+        candidate = m.group()
+        while candidate:  # the optional tail group can swallow the next word: trim it until the checksum holds
+            if _iban_ok(candidate.upper()):
+                spans.append(Span(m.start(), m.start() + len(candidate), "iban"))
+                break
+            candidate = candidate.rsplit(" ", 1)[0] if " " in candidate else ""
+    spans += [Span(m.start(), m.end(), "iban") for m in _IBAN_PL_BARE.finditer(text)
+              if _iban_ok("PL" + re.sub(r"\D", "", m.group()))]
+    return spans
 
 
 def find_passport(text: str) -> list[Span]:
-    return [Span(m.start(), m.end(), "passport") for m in re.finditer(r"\b[A-Z]{2}\d{7}\b", text)]
+    return [Span(m.start(), m.end(), "passport") for m in re.finditer(r"\b[A-Za-z]{2}\d{7}\b", text)]
 
 
 _SECRET_PATTERNS = [re.compile(p) for p in (
@@ -47,6 +64,11 @@ _SECRET_PATTERNS = [re.compile(p) for p in (
     r"-----BEGIN [A-Z ]*PRIVATE KEY-----",
     r"(?i)\b(?:password|passwd|secret|api[_-]?key|token)\s*[:=]\s*\S{6,}",
     r"Bearer [A-Za-z0-9._\-]{20,}",
+    r"\b[sr]k_(?:live|test)_[A-Za-z0-9]{16,}",            # Stripe
+    r"\bxox[abprs]-[A-Za-z0-9-]{10,}",                    # Slack
+    r"\beyJ[A-Za-z0-9_-]{8,}\.eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}",  # JWT
+    r"\bAIza[0-9A-Za-z_\-]{35}",                          # Google API key
+    r"\bgithub_pat_[A-Za-z0-9_]{30,}", r"\bglpat-[A-Za-z0-9_\-]{20,}",
 )]
 
 

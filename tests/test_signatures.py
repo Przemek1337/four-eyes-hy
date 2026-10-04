@@ -166,7 +166,7 @@ def test_clean_pickle_and_safetensors_pass(tmp_path):
     clean = tmp_path / "ok.pkl"
     clean.write_bytes(pickle.dumps({"w": [1, 2, 3]}))
     safe = tmp_path / "model.safetensors"
-    safe.write_bytes(b"\x00\x01")
+    safe.write_bytes((2).to_bytes(8, "little") + b"{}")  # a minimal valid safetensors file
     assert SigFeedControl().evaluate(art_ctx(store, clean), "pre") is None
     assert SigFeedControl().evaluate(art_ctx(store, safe), "pre") is None
 

@@ -12,7 +12,7 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=8.0"]
+dev = ["pytest>=8.0", "hypothesis>=6.100"]
 ml = ["transformers>=4.40", "torch>=2.2"]
 harness = ["reportlab>=4.0", "pypdf>=4.0", "python-multipart>=0.0.9"]
 

@@ -99,6 +99,29 @@ th { color: var(--faint); font-weight: 400; font-size: 13px; border-top: 0; }
   .side-foot { margin: 0 0 0 auto; }
   .main { padding: 32px 20px 56px; }
 }
+/* Full-page screen while the gateway has not answered yet. Four eyes light up in turn, clockwise: top left, top right,
+   bottom right, bottom left. Each one opens (lit, full) and closes (a dim slit). */
+.gw-screen { position: fixed; inset: 0; z-index: 100; background: var(--ink); display: grid; place-content: center; justify-items: center; gap: 28px; padding: 24px; text-align: center; }
+.gw-eyes { display: grid; grid-template-columns: repeat(2, 30px); gap: 22px 34px; }
+.gw-eyes i { width: 30px; height: 30px; border-radius: 50%; background: var(--hold); transform: scaleY(0.14); opacity: 0.35; animation: gw-eye 1.6s ease-in-out infinite; }
+.gw-eyes i:nth-child(1) { animation-delay: 0s; }
+.gw-eyes i:nth-child(2) { animation-delay: 0.4s; }
+.gw-eyes i:nth-child(4) { animation-delay: 0.8s; }
+.gw-eyes i:nth-child(3) { animation-delay: 1.2s; }
+@keyframes gw-eye {
+  0%   { transform: scaleY(0.14); opacity: 0.35; box-shadow: none; }
+  12%  { transform: scaleY(1); opacity: 1; box-shadow: 0 0 22px rgba(200, 245, 96, 0.55); }
+  32%  { transform: scaleY(1); opacity: 1; box-shadow: 0 0 22px rgba(200, 245, 96, 0.55); }
+  48%  { transform: scaleY(0.14); opacity: 0.35; box-shadow: none; }
+  100% { transform: scaleY(0.14); opacity: 0.35; box-shadow: none; }
+}
+.gw-name { font-size: 18px; font-weight: 700; letter-spacing: -0.01em; }
+.gw-text { display: grid; gap: 6px; justify-items: center; max-width: 44ch; }
+.gw-text b { font-weight: 600; font-size: 16px; }
+.gw-text span { color: var(--muted); font-size: 14px; }
+.gw-text code { font-family: var(--mono); color: var(--text); }
+.gw-text .btn-sm { margin-top: 10px; }
+@media (prefers-reduced-motion: reduce) { .gw-eyes i { transform: none !important; opacity: 1 !important; } }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
 
 /* meter: white fill, lime from the soft limit, striped lime when over */
