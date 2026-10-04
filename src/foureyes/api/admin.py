@@ -518,6 +518,25 @@ def chat(http: HttpRequest, body: dict = Body(...)):
             "message": v.reason if v else "", "steps": []}
 
 
+@router.post("/admin/demo/attack")
+def start_demo_attack(http: HttpRequest):
+    """The Playground's "Run test attack": starts the staged attack demo in the background, one request at a time."""
+    demo = _services(http).attack_demo
+    if demo is None:
+        return JSONResponse({"error": {"message": "the attack demo needs a demo harness behind the gateway"}}, status_code=501)
+    if not demo.start():
+        return JSONResponse({"error": {"message": "an attack run is already going"}, **demo.status()}, status_code=409)
+    return JSONResponse(demo.status(), status_code=202)
+
+
+@router.get("/admin/demo/attack")
+def demo_attack_status(http: HttpRequest):
+    demo = _services(http).attack_demo
+    if demo is None:
+        return {"state": "unavailable", "sent": 0, "current": None, "summary": None, "error": None}
+    return demo.status()
+
+
 @router.get("/admin/stream")
 def stream(http: HttpRequest):
     audit = _services(http).audit
