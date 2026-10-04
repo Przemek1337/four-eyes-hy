@@ -30,6 +30,8 @@ export interface Metrics {
   /** median seconds between an approval being requested and decided; null when none was decided */
   approval_median_s?: number | null;
   approvals_expired?: number;
+  /** latency per decision model, from the `ai` blocks of recent decision events (spec 4.5) */
+  decision_models?: Record<string, { p50_ms: number; p95_ms: number; n: number }>;
 }
 
 export interface TimeseriesT {

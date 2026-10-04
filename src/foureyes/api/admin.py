@@ -130,6 +130,17 @@ def _flow(services, sess, events: list[dict]) -> dict:
     return {"sources": sources, "agent": agent, "destinations": destinations}
 
 
+def _decision_model_latency(decisions: list[dict]) -> dict[str, dict]:
+    """p50/p95 latency per decision model (spec 4.5), from the `ai` blocks the AI controls wrote to the audit."""
+    by_model: dict[str, list[float]] = {}
+    for e in decisions:
+        for assessment in (e.get("ai") or {}).values():
+            if isinstance(assessment, dict) and assessment.get("model") and assessment.get("latency_ms") is not None:
+                by_model.setdefault(assessment["model"], []).append(float(assessment["latency_ms"]))
+    return {name: {"p50_ms": percentile(ms, 50), "p95_ms": percentile(ms, 95), "n": len(ms)}
+            for name, ms in sorted(by_model.items())}
+
+
 @router.get("/metrics")
 def metrics(http: HttpRequest):
     s = _services(http)
@@ -173,6 +184,7 @@ def metrics(http: HttpRequest):
             "throughput_per_min": sum(1 for e in decisions if (e.get("ts_epoch") or 0) >= now - 60),
             "top_blockers": sorted(blockers.values(), key=lambda b: -b["blocked"])[:10],
             "routing": list(routing.values()), "redacted_fields": redacted_fields,
+            "decision_models": _decision_model_latency(decisions),
             "approval_median_s": statistics.median(decided) if decided else None,
             "approvals_expired": sum(1 for a in s.approvals.all()
                                      if a.status == "pending" and a.expires_at <= s.approvals.clock())}

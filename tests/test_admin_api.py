@@ -127,3 +127,33 @@ def test_chat_uses_the_same_policy_as_everything_else(tmp_path):
     loose = make_gateway(tmp_path / "b", overrides={"controls": {"sem.prompt_injection": {
         "prompts": {"block_above": 0.99, "log_above": 0.99}}}})
     assert loose.client.post("/admin/chat", json={"mode": "prompt", "text": text}).json()["decision"] == "ALLOW"
+
+
+def test_metrics_report_latency_per_decision_model(gw):
+    # spec 4.5 / review I4: p50/p95 per decision model, from the ai blocks of decision events in the audit
+    def ai(model, ms):
+        return {"model": model, "model_version": "v", "rule": None, "probability": 0.1, "confidence": 0.9,
+                "score": 0.1, "chunks": 1, "latency_ms": ms, "uncertain": False}
+
+    for ms in (10, 20, 30, 40, 100):
+        gw.services.audit.emit({"session_id": "dm", "kind": "model", "decision": "ALLOW", "rule": "pipeline",
+                                "data_class": "public", "ai": {"sem.prompt_injection": ai("granite_guardian", ms)}})
+    gw.services.audit.emit({"session_id": "dm", "kind": "tool", "decision": "ALLOW", "rule": "pipeline",
+                            "data_class": "public", "ai": {"data.classify_net": ai("basal", 5),
+                                                           "sem.action_judge": ai("basal", 7)}})
+    gw.services.audit.emit({"event": "label.added", "session_id": "dm", "ai": {"x": ai("ignored", 1)}})
+    m = gw.client.get("/metrics").json()
+    assert m["decision_models"]["granite_guardian"] == {"p50_ms": 30.0, "p95_ms": 100.0, "n": 5}
+    assert m["decision_models"]["basal"] == {"p50_ms": 5.0, "p95_ms": 7.0, "n": 2}
+    assert "ignored" not in m["decision_models"]
+
+
+def test_metrics_decision_models_from_a_real_request(tmp_path):
+    from foureyes.semantic.decision_model_registry import DecisionModelRegistry
+    from foureyes.semantic.mock_decision_client import MockDecisionClient
+
+    g = make_gateway(tmp_path, decision_models=DecisionModelRegistry(override=MockDecisionClient()))
+    assert g.client.get("/metrics").json()["decision_models"] == {}
+    chat(g, "hello", "dm-real")
+    models = g.client.get("/metrics").json()["decision_models"]
+    assert models["granite_guardian"]["n"] >= 1 and models["granite_guardian"]["p95_ms"] >= 0
