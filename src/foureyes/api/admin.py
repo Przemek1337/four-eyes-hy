@@ -47,6 +47,8 @@ EMPTY_REPORT = {"passed": 0, "failed": 0, "positive": {"passed": 0, "failed": 0}
                 "negative": {"passed": 0, "failed": 0}, "by_owasp": {}, "false_blocks": 0, "missed_attacks": 0,
                 "ran_at": None, "policy_version": None}
 DECISIONS = ("ALLOW", "REDACT", "APPROVAL", "BLOCK")
+MAX_QUESTION_CHARS = 2000
+HISTORY_CHARS = 4000  # Playground keeps the last exchange only, each side cut to this length
 REPORT = Path(os.environ.get("FOUREYES_REPORT", "reports/test_report.json"))
 
 
@@ -102,7 +104,7 @@ def _flow(services, sess, events: list[dict]) -> dict:
     last_model = model_ev[-1]["route"] if model_ev else None
     lowest = snap.class_order[0]
     first_labeled = next((i for i, e in enumerate(decs, 1) if e.get("labels")), None)
-    agent = {"name": sess.agent_id, "model": f"{last_model['model']} ({last_model['chosen']})" if last_model else "",
+    agent = {"name": sess.agent_id, "model": f"{last_model.get('served_model') or last_model['model']} ({last_model['chosen']})" if last_model else "",
              "labels": sorted(sess.labels) + ([sess.data_class] if sess.data_class != lowest else []),
              "labels_since_step": first_labeled}
     allowed = snap.allowed_upstream_types(sess.data_class)
@@ -464,9 +466,15 @@ def chat(http: HttpRequest, body: dict = Body(...)):
     if mode == "document":
         if s.document_runner is None:
             return JSONResponse({"error": "no harness runner is configured for document mode"}, status_code=501)
+        question = body.get("question")  # asked next to the file; optional, goes to the agent as a prompt, not as document text
+        if question is not None and not isinstance(question, str):
+            raise HTTPException(400, "question must be a string")
+        asked = {"question": question.strip()} if question and question.strip() else {}
+        if len(asked.get("question", "")) > MAX_QUESTION_CHARS:
+            raise HTTPException(400, f"question is longer than {MAX_QUESTION_CHARS} characters")
         upload = body.get("file")
         if upload is None:
-            return s.document_runner(text=text, session_id=sid)
+            return s.document_runner(text=text, session_id=sid, **asked)
         if not isinstance(upload, dict):
             raise HTTPException(400, "file must be an object with name, content_type and content_base64")
         try:
@@ -476,18 +484,29 @@ def chat(http: HttpRequest, body: dict = Body(...)):
         if len(pdf) > MAX_UPLOAD_BYTES:
             return JSONResponse({"error": {"message": "the file is larger than 5 MB"}}, status_code=413)
         try:
-            return s.document_runner(text=text, session_id=sid, pdf=pdf)
+            return s.document_runner(text=text, session_id=sid, pdf=pdf, **asked)
         except ValueError as exc:  # the harness could not read it: not a PDF, encrypted, no text layer
             return JSONResponse({"error": {"message": str(exc)}}, status_code=422)
     agent = s.chat_agent or "playground-agent"
+    # The model sees the previous exchange. The gateway keeps it itself, from what it delivered, instead of taking a
+    # history from the browser: a forged "assistant" message would not be read as text to check.
+    earlier = s.sessions.get(sid)
+    history = list(earlier.last_turn) if earlier else []
     req = Request(kind="model", agent_id=agent, session_id=sid, channel="chat", model=body.get("model") or "auto",
-                  messages=[{"role": "user", "content": text}], meta={"session_id": sid, "channel": "chat"})
+                  messages=history + [{"role": "user", "content": text}], meta={"session_id": sid, "channel": "chat"})
     res = engine.handle_model(req)
+    if res.status == 200:
+        reply_text = res.body["choices"][0]["message"].get("content")
+        kept = s.sessions.get(sid)
+        if kept is not None and isinstance(reply_text, str):  # the user's text after any redaction, and the reply as delivered
+            kept.last_turn = [{"role": "user", "content": str(req.messages[-1].get("content", ""))[:HISTORY_CHARS]},
+                              {"role": "assistant", "content": reply_text[:HISTORY_CHARS]}]
     ev = next((e for e in reversed(s.audit.events(session=sid)) if e.get("decision_id") == res.decision_id), {})
     v = res.verdict
     ok = res.status == 200
     r = ev.get("route")
-    route = ({"type": r["chosen"], "model": r["model"], "router": r["router"], "rerouted_from": r["rerouted_from"]}
+    route = ({"type": r["chosen"], "model": r["model"], "served_model": r.get("served_model"), "router": r["router"],
+              "rerouted_from": r["rerouted_from"]}
              if r else None)
     return {"session_id": sid, "decision": res.outcome.value, "rule": v.rule if v else None,
             "layer": v.layer if v else None, "code": v.code if v else None,

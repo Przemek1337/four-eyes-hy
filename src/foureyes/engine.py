@@ -81,7 +81,8 @@ class Engine:
 
     def _event(self, ctx: Ctx, v: Verdict, total_ms: float, up_ms: float) -> dict:
         req, route = ctx.request, ctx.route
-        resource = req.tool if req.kind == "tool" else (route.model if route else req.model)
+        served = ctx.notes.get("served_model")
+        resource = req.tool if req.kind == "tool" else (served or (route.model if route else req.model))
         return {
             "event": "decision", "decision_id": ctx.decision_id, "session_id": req.session_id,
             "agent": req.agent_id, "kind": req.kind, "action": f"{req.kind}:{resource}", "resource": resource,
@@ -91,7 +92,8 @@ class Engine:
             "latency_ms": round(total_ms, 3), "gateway_ms": round(total_ms - up_ms, 3), "upstream_ms": round(up_ms, 3),
             "timings": ctx.spans,
             "route": ({"allowed": route.allowed_types, "chosen": route.type, "model": route.model,
-                       "router": route.router, "rerouted_from": route.rerouted_from, "fallback": route.fallback}
+                       "served_model": served, "router": route.router, "rerouted_from": route.rerouted_from,
+                       "fallback": route.fallback}
                       if route else None),
             "upstream_type": route.type if route else None, "provider": route.type if route else None,
             "anonymization": ctx.notes.get("anonymization"),
@@ -175,6 +177,8 @@ class Engine:
             return self._reject(ctx, Verdict.block("route.upstream", str(exc), code=code, owasp=("LLM02:2026",)), t0, up_ms)
         up_ms = (time.perf_counter() - t_up) * 1000
         ctx.usage, ctx.upstream_seconds = resp.usage, resp.seconds
+        if resp.served_model:
+            ctx.notes["served_model"] = resp.served_model  # what really answered, not what the policy asked for
         content = resp.message.get("content")
         ctx.response_text = content if isinstance(content, str) else None
 
@@ -188,14 +192,14 @@ class Engine:
         self._finish(ctx, final, t0, up_ms)
         route = ctx.route
         body = {
-            "id": f"chatcmpl-{ctx.decision_id}", "object": "chat.completion", "model": route.model,
+            "id": f"chatcmpl-{ctx.decision_id}", "object": "chat.completion", "model": resp.served_model or route.model,
             "choices": [{"index": 0, "message": message,
                          "finish_reason": "tool_calls" if message.get("tool_calls") else "stop"}],
             "usage": resp.usage,
             "foureyes": {"decision_id": ctx.decision_id, "decision": final.outcome.value, "rule": final.rule,
                          "session_id": req.session_id, "data_class": ctx.session.data_class,
-                         "route": {"type": route.type, "model": route.model, "router": route.router,
-                                   "rerouted_from": route.rerouted_from}},
+                         "route": {"type": route.type, "model": route.model, "served_model": resp.served_model,
+                                   "router": route.router, "rerouted_from": route.rerouted_from}},
         }
         return GatewayResult(200, body, final.outcome, ctx.decision_id, req.session_id, final)
 

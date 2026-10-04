@@ -50,8 +50,15 @@ describe("headlineFor", () => {
 });
 
 describe("summaryFor / alertText", () => {
-  it("explains routing for model calls", () => {
-    expect(summaryFor(events[0])).toBe("Route: public → local (qwen2.5:7b, router rule_based)");
+  it("explains routing for model calls, and does not present the configured model as fact", () => {
+    expect(summaryFor(events[0])).toBe("Route: public → local (qwen2.5:7b (as configured, the server did not say which model answered), router rule_based)");
+  });
+  it("names the model the server says answered, and says when the policy asked for another", () => {
+    const route = { allowed: ["local"], chosen: "local", model: "qwen2.5:7b", router: "rule_based", rerouted_from: null, fallback: false };
+    expect(summaryFor(fx.decision({ kind: "model", data_class: "public", route: { ...route, served_model: "qwen2.5:7b" } })))
+      .toBe("Route: public → local (qwen2.5:7b, router rule_based)");
+    expect(summaryFor(fx.decision({ kind: "model", data_class: "public", route: { ...route, served_model: "basal-1.0-1.5B" } })))
+      .toBe("Route: public → local (basal-1.0-1.5B (the policy asked for qwen2.5:7b), router rule_based)");
   });
   it("explains stops with rule and code", () => {
     expect(summaryFor(events[3])).toContain("Blocked by authz.tools (TOOL_ORDER)");

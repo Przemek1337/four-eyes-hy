@@ -57,6 +57,8 @@ export interface RouteInfo {
   allowed: string[];
   chosen: string;
   model: string;
+  /** the model the server says answered; null when it did not say, absent in older events */
+  served_model?: string | null;
   router: string;
   rerouted_from: string | null;
   fallback: boolean;
@@ -241,7 +243,7 @@ export interface ChatResult {
   code: string | null;
   owasp: string[];
   data_class: string | null;
-  route: { type: string; model: string; router: string; rerouted_from: string | null } | null;
+  route: { type: string; model: string; served_model?: string | null; router: string; rerouted_from: string | null } | null;
   latency_ms: number | null;
   injection_score: number | null;
   reply: string | null;
