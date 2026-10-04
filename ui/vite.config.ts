@@ -9,7 +9,7 @@ export default defineConfig(({ mode }) => {
     base: "/ui/",
     plugins: [react()],
     build: { outDir: "../src/foureyes/ui_dist", emptyOutDir: true },
-    server: { port: 5173, proxy: { "/admin": gateway, "/metrics": gateway, "/audit": gateway, "/__mock": gateway } },
+    server: { host: "127.0.0.1", port: 5173, proxy: { "/admin": gateway, "/metrics": gateway, "/audit": gateway, "/__mock": gateway } },
     test: { environment: "jsdom", globals: true, setupFiles: ["./src/test/setup.ts"], css: false },
   };
 });
