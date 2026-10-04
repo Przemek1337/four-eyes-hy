@@ -66,6 +66,19 @@ class Engine:
         for ev in ctx.session.drain_events():
             self.s.audit.emit(ev)
 
+    @staticmethod
+    def _judge(ctx: Ctx, v: Verdict) -> dict | None:
+        info = v.detail.get("judge") or next((x.detail["judge"] for x in ctx.verdicts if x.detail.get("judge")), None)
+        return {"score": info["score"], "reason": info["reason"]} if info else None
+
+    @staticmethod
+    def _evidence(ctx: Ctx, v: Verdict) -> str | None:
+        ev = v.detail.get("evidence") or v.detail.get("fragment")
+        if ev is None:
+            ev = next((a.get("fragment") or a.get("evidence") for a in ctx.alerts
+                       if a.get("fragment") or a.get("evidence")), None)
+        return str(ev)[:300] if ev else None
+
     def _event(self, ctx: Ctx, v: Verdict, total_ms: float, up_ms: float) -> dict:
         req, route = ctx.request, ctx.route
         resource = req.tool if req.kind == "tool" else (route.model if route else req.model)
@@ -86,6 +99,10 @@ class Engine:
             "compute_s": ctx.notes.get("compute_s", 0.0),
             "alerts": ctx.alerts, "monitor": [{"rule": m.rule, "outcome": m.outcome.value} for m in ctx.monitor],
             "detail": v.detail,
+            "injection_score": ctx.notes.get("injection_score"),
+            "reference": v.detail.get("reference"),
+            "judge": self._judge(ctx, v),
+            "evidence": self._evidence(ctx, v),
             "content": req.prompt_text[:500] if req.kind == "model" else req.args_json[:500],
         }
 

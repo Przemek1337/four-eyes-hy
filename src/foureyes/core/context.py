@@ -23,6 +23,7 @@ class Services:
     injection: Any = None
     judge: Any = None
     document_runner: Any = None
+    chat_agent: Any = None
 
 
 @dataclass

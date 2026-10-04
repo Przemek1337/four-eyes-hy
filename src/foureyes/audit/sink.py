@@ -5,6 +5,7 @@ import io
 import json
 import queue
 import threading
+import time
 import uuid
 from collections import deque
 from datetime import datetime, timezone
@@ -14,6 +15,13 @@ from typing import Callable
 from foureyes.detect.patterns import redact_obj
 
 DEFAULT_DETECTORS = ["secrets", "iban", "pesel", "passport"]
+# export filter `events=decisions,policy,usage`: which audit events each group selects
+EVENT_GROUPS: dict[str, Callable[[dict], bool]] = {
+    "decisions": lambda e: e.get("event", "decision") == "decision",
+    "policy": lambda e: str(e.get("event", "")).startswith("policy."),
+    "usage": lambda e: e.get("event", "decision") == "decision"
+    and bool(e.get("tokens") or e.get("cost_usd") or e.get("compute_s")),
+}
 
 
 class AuditSink:
@@ -44,6 +52,7 @@ class AuditSink:
         ev.setdefault("event", "decision")
         ev.setdefault("decision_id", uuid.uuid4().hex[:12])
         ev["ts"] = datetime.now(timezone.utc).isoformat()
+        ev["ts_epoch"] = time.time()
         ev.setdefault("policy_version", snap.label)
         if state == "on":
             ev, _ = redact_obj(ev, detectors)
@@ -60,6 +69,8 @@ class AuditSink:
     @staticmethod
     def _match(ev: dict, f: dict) -> bool:
         if f.get("event") and ev.get("event") != f["event"]:
+            return False
+        if f.get("events") and not any(EVENT_GROUPS[g](ev) for g in f["events"]):
             return False
         for key in ("agent", "decision", "rule", "data_class"):
             if f.get(key) and ev.get(key) != f[key]:
