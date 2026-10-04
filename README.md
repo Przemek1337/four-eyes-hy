@@ -22,6 +22,21 @@ An unconfident answer (`confidence < min_confidence`) escalates data classificat
 
 The MVP uses one local Basal 1.5B server for all three controls. Build and start it on an NVIDIA GPU:
 
+Docker Desktop with NVIDIA GPU support can build the UI, gateway and Basal together:
+
+```sh
+docker volume create foureyes-basal-cache
+docker compose up -d --build --wait
+```
+
+Open `http://127.0.0.1:8080/ui/`. Compose waits for Basal before starting the gateway,
+uses real decision models, and retains model weights and the gateway audit in volumes.
+To rebuild and recreate running services, use `docker compose up -d --build --force-recreate --wait`.
+The policy, signature feed and local test reports are mounted from the workspace.
+Use `docker compose down` to stop the stack while retaining its data.
+
+To run only the model server manually:
+
 ```sh
 docker build -t foureyes-basal:1.0.1 -f scripts/models/Dockerfile.basal scripts/models
 docker run -d --name foureyes-basal --gpus all -p 127.0.0.1:8000:8000 -v foureyes-basal-cache:/models foureyes-basal:1.0.1

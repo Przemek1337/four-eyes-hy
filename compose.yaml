@@ -1,0 +1,50 @@
+name: foureyes
+services:
+  basal:
+    image: foureyes-basal:1.0.1
+    build:
+      context: scripts/models
+      dockerfile: Dockerfile.basal
+    container_name: foureyes-basal
+    gpus: all
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8000:8000"
+    volumes:
+      - basal-cache:/models
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=5)"]
+      interval: 10s
+      timeout: 6s
+      retries: 12
+      start_period: 60s
+  gateway:
+    image: foureyes-gateway:latest
+    build: .
+    container_name: foureyes-mvp
+    restart: unless-stopped
+    environment:
+      MODEL: mock
+      DECISION_MODELS: live
+      BASAL_URL: http://basal:8000
+    ports:
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - gateway-data:/app/data
+      - ./policy.yaml:/app/policy.yaml:ro
+      - ./feeds:/app/feeds:ro
+      - ./reports:/app/reports:ro
+    depends_on:
+      basal:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/admin/policy', timeout=5)"]
+      interval: 10s
+      timeout: 6s
+      retries: 6
+      start_period: 15s
+volumes:
+  basal-cache:
+    external: true
+    name: foureyes-basal-cache
+  gateway-data:

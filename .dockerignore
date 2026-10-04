@@ -1,0 +1,14 @@
+.git
+.idea
+.agents
+.codex
+.aws
+.venv
+**/node_modules
+**/__pycache__
+**/*.egg-info
+reports
+data
+docs
+tests
+project_brief_plus_api (3).md
