@@ -78,3 +78,31 @@ def test_encrypted_pdf_is_unavailable():
 def test_kyc_tools_read_the_pdf_documents():
     out = KycTools().entities_documents_read("C1", "nordwind-krs-injected")
     assert "skip sanctions screening" in out["text"].lower()
+
+
+def _pdf(pages: int, lines_per_page: int = 1, line: str = "Nordwind") -> bytes:
+    buf = io.BytesIO()
+    c = canvas.Canvas(buf)
+    for _ in range(pages):
+        for i in range(lines_per_page):
+            c.drawString(10, 800 - i * 2, line)
+        c.showPage()
+    c.save()
+    return buf.getvalue()
+
+
+def test_a_pdf_with_up_to_50_pages_is_read():
+    assert extract_pdf_text(_pdf(50)).count("Nordwind") == 50
+
+
+@pytest.mark.negative
+def test_a_pdf_over_50_pages_is_refused():
+    with pytest.raises(PdfTextUnavailable, match="more than 50 pages"):
+        extract_pdf_text(_pdf(51))
+
+
+@pytest.mark.negative
+def test_a_pdf_over_200000_characters_of_text_is_refused():
+    big = _pdf(1, lines_per_page=41, line="x" * 5000)  # 205 000 characters on one page
+    with pytest.raises(PdfTextUnavailable, match="more than 200000 characters"):
+        extract_pdf_text(big)
