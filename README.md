@@ -32,15 +32,19 @@ without a human**. [Full flow](docs/img/kyc-flow.png).
 - **Proven.** 1316 tests, 0 failures. 600 synthetic attacks, 0 false blocks on 252 legitimate cases. Gateway overhead
   under 1 ms (p95 0.13 ms).
 
-## Run it
+## Enjoy our demo
+
+**<https://four-eyes-hy.onrender.com/ui/>**: open **Playground**, press **Run test attack**, or drop a PDF.
+
+The demo is a live deployment of the real gateway: policy, controls, approvals, budgets, audit and dashboard all run
+for real. **The local LLM is not part of the demo.** Model answers and the AI guard's verdicts are mocked, because we
+do not host a GPU model on a public demo. The code runs the real local model (Basal 1.5B) unchanged.
+
+Run it yourself:
 
 ```sh
-make install                 # Python 3.11+
-make test                    # full test suite, no GPU needed
-MODEL=mock make run          # demo with mocked model answers
+make install && make test && MODEL=mock make run     # mocked answers, no GPU
+docker compose up -d --build --wait                  # real local model (NVIDIA GPU)
 ```
-
-Open <http://127.0.0.1:8080/ui/>, go to **Playground**, press **Run test attack**. The real local model runs with
-`DECISION_MODELS=live` (or `docker compose up`).
 
 More: [architecture](docs/architecture.md) · [attack corpus](docs/attack-corpus.md) · [developer notes](docs/developer-notes.md)
