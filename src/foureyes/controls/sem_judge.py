@@ -30,13 +30,6 @@ class ActionJudgeControl(Control):
         kind = classify_action(ctx)
         conf = self.conf(ctx)
 
-        # For decision models, also judge internal egress actions
-        if kind is None:
-            req = ctx.request
-            cfg = ctx.policy.tools.get(req.tool, {})
-            if "egress" in cfg.get("tags", []) and "egress" in conf.get("on", ["egress", "critical"]):
-                kind = "egress"
-
         if kind is None or kind not in conf.get("on", ["egress", "critical"]):
             return None
         req = ctx.request
