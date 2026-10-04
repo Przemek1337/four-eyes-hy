@@ -21,7 +21,9 @@ class DecisionModelActionJudge:
         state = json.dumps({"task": task, "tool": tool, "args": args, "labels": labels},
                            ensure_ascii=False, sort_keys=True)
         d = self.client.choice(state, self.conf.get("question", DEFAULT_QUESTION), self.conf["options"])
-        score = float(d.probabilities.get("out_of_scope", 0.0))
+        # without a probabilities map, score from the choice itself, so a confident out_of_scope still escalates
+        fallback = d.confidence if d.choice == "out_of_scope" else 1 - d.confidence
+        score = float(d.probabilities.get("out_of_scope", fallback))
         uncertain = d.confidence < float(self.conf.get("min_confidence", 0.0))
         a = AiAssessment(self.model_name, self.client.model_version, d.choice,
                          d.probabilities.get(d.choice, d.confidence), d.confidence, score, 1, d.latency_ms, uncertain)

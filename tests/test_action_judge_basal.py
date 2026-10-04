@@ -82,3 +82,21 @@ def test_without_a_registry_the_legacy_judge_is_used():
     ctx.session.task = "KYC"
     v = run(ctx)
     assert v.outcome is Outcome.APPROVAL and "ai" not in v.detail
+
+
+@pytest.mark.negative
+@pytest.mark.parametrize("choice, expected", [("out_of_scope", Outcome.APPROVAL), ("consistent", Outcome.ALLOW)])
+def test_basal_answer_without_probabilities_scores_from_the_choice(choice, expected):
+    # review I1: Basal answered a confident out_of_scope with no probabilities map and the action was allowed
+    import httpx
+    from foureyes.semantic.basal_decision_client import BasalDecisionClient
+
+    answer = {"answers": {"q": {"type": "choice", "choice": choice, "confidence": 0.97}}}
+    basal = BasalDecisionClient("http://basal:8000", "basal-1.0-4.5B", client=httpx.Client(
+        transport=httpx.MockTransport(lambda req: httpx.Response(200, json=answer))))
+    v = run(tool_ctx(basal, "send_email", {"to": "kyc-verify@external.example"}))
+    if expected is Outcome.APPROVAL:
+        assert v.outcome is Outcome.APPROVAL and v.code == "ACTION_INCONSISTENT"
+        assert v.detail["judge"]["score"] == pytest.approx(0.97)
+    else:
+        assert v.outcome is Outcome.ALLOW and v.detail["judge"]["score"] == pytest.approx(0.03)

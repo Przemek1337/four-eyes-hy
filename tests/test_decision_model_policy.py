@@ -82,3 +82,41 @@ def test_every_decision_model_error_is_reported():
         snapshot({"controls": {"sem.prompt_injection": {"model": "gpt-judge"},
                                "sem.action_judge": {"model": "jev"}}})
     assert "gpt-judge" in str(err.value) and "external" in str(err.value) and "; " in str(err.value)
+
+
+@pytest.mark.negative
+@pytest.mark.parametrize("cid, path", [("sem.prompt_injection", ()), ("sem.action_judge", ()),
+                                       ("data.classify_net", ("ai",))])
+@pytest.mark.parametrize("value", [None, 0, -0.5, 1.5, 90, "high"])
+def test_min_confidence_is_required_in_the_range_0_to_1(cid, path, value):
+    # review I2: a missing min_confidence silently turned off "uncertain means stricter"
+    override = {"min_confidence": value}
+    for key in reversed(path):
+        override = {key: override}
+    with pytest.raises(PolicyError, match=f"{cid}.*min_confidence"):
+        snapshot({"controls": {cid: override}})
+
+
+@pytest.mark.parametrize("value", [1, 0.5, 0.01])
+def test_min_confidence_in_range_is_accepted(value):
+    snapshot({"controls": {"sem.prompt_injection": {"min_confidence": value},
+                           "sem.action_judge": {"min_confidence": value},
+                           "data.classify_net": {"ai": {"min_confidence": value}}}})
+
+
+def test_legacy_models_need_no_min_confidence():
+    snapshot({"controls": {"sem.prompt_injection": {"model": "promptguard", "min_confidence": None},
+                           "sem.action_judge": {"model": "ollama", "min_confidence": None}}})
+
+
+@pytest.mark.negative
+def test_data_class_ai_block_needs_a_model():
+    with pytest.raises(PolicyError, match="data.classify_net.ai: model is required"):
+        snapshot({"controls": {"data.classify_net": {"ai": {"model": None}}}})
+
+
+@pytest.mark.negative
+def test_a_content_control_cannot_use_a_type_without_an_adapter_even_when_local():
+    models = {"decision_models": {"jev_local": {"type": "jev", "location": "local", "base_url": "http://jev:1"}}}
+    with pytest.raises(PolicyError, match="no adapter"):
+        snapshot({**models, "controls": {"sem.action_judge": {"model": "jev_local"}}})

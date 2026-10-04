@@ -15,6 +15,7 @@ TYPE_BUILTIN_RULES: dict[str, frozenset[str]] = {
 }
 CONTROL_NEEDS = {"data.classify_net": "choice", "sem.prompt_injection": "yes_no", "sem.action_judge": "choice"}
 LEGACY_MODELS = {"sem.prompt_injection": frozenset({"promptguard"}), "sem.action_judge": frozenset({"ollama"})}
+TYPES_WITHOUT_ADAPTER = frozenset({"jev"})  # known to the router, but no client is shipped to ask it questions
 BUILTIN_MODELS = {"mock": {"type": "mock", "location": "local"}}
 LOCATIONS = ("local", "external")
 
@@ -31,6 +32,21 @@ def model_refs(controls: dict) -> dict[str, str]:
 
 def _all_models(decision_models: dict) -> dict:
     return {**BUILTIN_MODELS, **(decision_models or {})}
+
+
+def _control_conf(controls: dict, cid: str) -> dict:
+    cfg = (controls or {}).get(cid) or {}
+    return (cfg.get("ai") or {}) if cid == "data.classify_net" else cfg
+
+
+def _min_confidence_error(cid: str, conf: dict) -> str | None:
+    value = conf.get("min_confidence")
+    where = f"{cid}.ai" if cid == "data.classify_net" else cid
+    if value is None:
+        return f"{where}: min_confidence is required when a decision model is used"
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not 0 < value <= 1:
+        return f"{where}: min_confidence must be a number above 0 and at most 1, got {value!r}"
+    return None
 
 
 def decision_model_errors(decision_models: dict, controls: dict, class_order: list[str]) -> list[str]:
@@ -54,6 +70,11 @@ def decision_model_errors(decision_models: dict, controls: dict, class_order: li
             errors.append(f"{cid}: decision model {name!r} is external; controls that read content need a local model")
         if CONTROL_NEEDS[cid] not in TYPE_CAPABILITIES[cfg["type"]]:
             errors.append(f"{cid}: decision model {name!r} cannot answer {CONTROL_NEEDS[cid]} questions")
+        if cfg["type"] in TYPES_WITHOUT_ADAPTER and cfg.get("location") != "external":
+            errors.append(f"{cid}: decision model {name!r} has type {cfg['type']!r}, which has no adapter")
+        conf_error = _min_confidence_error(cid, _control_conf(controls, cid))
+        if conf_error:
+            errors.append(conf_error)
     inj = (controls or {}).get("sem.prompt_injection") or {}
     if "sem.prompt_injection" in model_refs(controls) and inj.get("model") not in LEGACY_MODELS["sem.prompt_injection"]:
         if not inj.get("rules"):
@@ -64,6 +85,8 @@ def decision_model_errors(decision_models: dict, controls: dict, class_order: li
             errors.append("sem.action_judge: options must be exactly consistent and out_of_scope")
     ai = ((controls or {}).get("data.classify_net") or {}).get("ai") or {}
     if ai:
+        if not ai.get("model"):
+            errors.append("data.classify_net.ai: model is required when the ai block is set")
         unknown = [c for c in (ai.get("classes") or {}) if c not in class_order]
         if unknown or not ai.get("classes"):
             errors.append(f"data.classify_net.ai: unknown data class {unknown or '(none given)'}")
