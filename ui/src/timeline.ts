@@ -28,6 +28,9 @@ export function alertText(a: { kind: string } & Record<string, unknown>): string
     case "budget.soft": return `Budget at ${String(a.pct)}%`;
     case "pii.detected": return "Personal data detected";
     case "dlp.detected": return "DLP detection (monitor mode)";
+    case "judge.inconsistent": return "The AI judge found the action inconsistent with the task";
+    case "output.canary": return "A canary from the system prompt appeared in the output";
+    case "output.unsafe": return "Unsafe content found in the output";
     default: return a.kind;
   }
 }

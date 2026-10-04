@@ -12,6 +12,11 @@ export function WhyBlocked({ event, approval }: { event: AuditEvent | null; appr
     ?? (event.detail?.evidence as string | undefined)
     ?? (event.alerts ?? []).map((a) => a.fragment).find((f): f is string => typeof f === "string");
   const reference = event.reference ?? (event.detail?.reference as string | undefined);
+  // The engine writes the detector score inside the alert or the verdict detail, and OWASP tags on the alert as well as on the event.
+  const alertScore = (event.alerts ?? []).map((a) => a.score).find((x): x is number => typeof x === "number");
+  const detailScore = typeof event.detail?.score === "number" ? (event.detail.score as number) : undefined;
+  const score = event.injection_score ?? detailScore ?? alertScore;
+  const owasp = [...new Set([...(event.owasp ?? []), ...(event.alerts ?? []).flatMap((a) => (Array.isArray(a.owasp) ? (a.owasp as string[]) : []))])];
   return (
     <section className="why" role="region" aria-label="Why this decision">
       <dl className="facts">
@@ -22,13 +27,13 @@ export function WhyBlocked({ event, approval }: { event: AuditEvent | null; appr
         </dd>
         <dt>Layer</dt><dd>{event.layer === "ai" ? "AI (semantic)" : "Deterministic"}</dd>
         {event.reason && <><dt>Reason</dt><dd>{event.reason}</dd></>}
-        {(event.owasp ?? []).length > 0 && (
-          <><dt>OWASP</dt><dd className="row">{event.owasp!.map((t) => <Badge key={t}>{t}</Badge>)}</dd></>
+        {owasp.length > 0 && (
+          <><dt>OWASP</dt><dd className="row">{owasp.map((t) => <Badge key={t}>{t}</Badge>)}</dd></>
         )}
         {event.signature_id && (
           <><dt>Signature</dt><dd><code>{event.signature_id}</code>{reference ? <div className="muted">{reference}</div> : null}</dd></>
         )}
-        {typeof event.injection_score === "number" && <><dt>Detector score</dt><dd>{event.injection_score.toFixed(2)}</dd></>}
+        {typeof score === "number" && <><dt>Detector score</dt><dd>{score.toFixed(2)}</dd></>}
         {needsJudge && (
           <><dt>AI judge</dt><dd>{judge ? `${judge.consistent ? "consistent" : "inconsistent"} with the task (${judge.score.toFixed(2)}): ${judge.reason}` : "not run"}</dd></>
         )}
