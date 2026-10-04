@@ -3,11 +3,14 @@ from __future__ import annotations
 import uuid
 
 from .agent import run_kyc_agent
+from .pdf_text_extraction import extract_pdf_text
 
 
 def make_document_runner(client, tools, key: str):
     """Judges' chat, Document mode: the pasted text becomes a client upload and a KYC agent session starts."""
-    def run(text: str, session_id: str) -> dict:
+    def run(text: str, session_id: str, pdf: bytes | None = None) -> dict:
+        if pdf is not None:
+            text = extract_pdf_text(pdf)  # raises NotAPdf / PdfTextUnavailable (ValueError) -> 422
         doc_id = f"upload-{uuid.uuid4().hex[:6]}"
         tools.documents[doc_id] = text
         out = run_kyc_agent(client, key=key, session_id=session_id, document_id=doc_id)
