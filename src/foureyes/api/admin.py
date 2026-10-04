@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import binascii
 import json
 import os
 import queue
@@ -20,6 +22,8 @@ from foureyes.semantic.decision_model_types import LEGACY_MODELS, model_refs
 from foureyes.signatures.feed import KNOWN_TYPES
 
 router = APIRouter()
+
+MAX_UPLOAD_BYTES = 5 * 1024 * 1024  # Playground document mode: a client PDF, at most 5 MB
 
 INFO = {
     "auth.agent_key": ("Without a valid agent key nothing runs; identity comes from the key.", "det"),
@@ -443,7 +447,21 @@ def chat(http: HttpRequest, body: dict = Body(...)):
     if mode == "document":
         if s.document_runner is None:
             return JSONResponse({"error": "no harness runner is configured for document mode"}, status_code=501)
-        return s.document_runner(text=text, session_id=sid)
+        upload = body.get("file")
+        if upload is None:
+            return s.document_runner(text=text, session_id=sid)
+        if not isinstance(upload, dict):
+            raise HTTPException(400, "file must be an object with name, content_type and content_base64")
+        try:
+            pdf = base64.b64decode(str(upload.get("content_base64", "")), validate=True)
+        except (binascii.Error, ValueError):
+            raise HTTPException(400, "file.content_base64 is not valid base64")
+        if len(pdf) > MAX_UPLOAD_BYTES:
+            return JSONResponse({"error": {"message": "the file is larger than 5 MB"}}, status_code=413)
+        try:
+            return s.document_runner(text=text, session_id=sid, pdf=pdf)
+        except ValueError as exc:  # the harness could not read it: not a PDF, encrypted, no text layer
+            return JSONResponse({"error": {"message": str(exc)}}, status_code=422)
     agent = s.chat_agent or "playground-agent"
     req = Request(kind="model", agent_id=agent, session_id=sid, channel="chat", model=body.get("model") or "auto",
                   messages=[{"role": "user", "content": text}], meta={"session_id": sid, "channel": "chat"})
